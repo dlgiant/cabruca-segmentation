@@ -1,0 +1,121 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ml_env/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+.pytest_cache/
+.coverage
+.tox/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.ruff_cache/
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# ML/Data Science
+*.h5
+*.pkl
+*.pickle
+*.joblib
+*.npy
+*.npz
+*.csv
+*.parquet
+wandb/
+mlruns/
+outputs/
+checkpoints/
+logs/
+tensorboard/
+*.ckpt
+*.pth
+*.pt
+*.onnx
+*.pb
+*.tflite
+
+# Data
+data/raw/*
+data/processed/*
+data/train/*
+data/val/*
+data/test/*
+!data/*/README.md
+!data/geojson/*.geojson
+*.tif
+*.tiff
+*.jp2
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment
+.env
+.env.local
+secrets.yaml
+credentials.json
+*.pem
+*.key
+*.crt
+
+# API/Web
+api_uploads/
+api_results/
+static/
+media/
+*.db
+*.sqlite
+*.sqlite3
+
+# Docker
+*.log
+docker-compose.override.yml
+
+# Testing
+htmlcov/
+.coverage.*
+.hypothesis/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+tmp/
+temp/
+cache/
+
+# Project specific
+plantation-data.json
+test_*.jpg
+test_*.png
+*.old

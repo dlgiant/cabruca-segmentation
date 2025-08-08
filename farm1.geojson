@@ -1,0 +1,29 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Camacan 20 Hectare AOI",
+        "area_hectares": 20,
+        "area_m2": 200000,
+        "center_coordinate": "24LVH4350692025",
+        "state": "Bahia",
+        "country": "Brazil",
+        "description": "20-hectare Area of Interest centered around specified coordinate in Camacan region - Compatible with Planet Labs AOI"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-39.502083, -15.402009],
+            [-39.502083, -15.397991],
+            [-39.497917, -15.397991],
+            [-39.497917, -15.402009],
+            [-39.502083, -15.402009]
+          ]
+        ]
+      }
+    }
+  ]
+}

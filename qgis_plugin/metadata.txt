@@ -1,0 +1,27 @@
+[general]
+name=Cabruca Segmentation Analysis
+qgisMinimumVersion=3.16
+description=Multi-class segmentation model for Cabruca agroforestry systems
+version=1.0.0
+author=Cabruca Analysis Team
+email=cabruca@example.com
+
+about=This plugin provides advanced segmentation capabilities for Cabruca agroforestry systems. It includes:
+    - Instance segmentation for individual tree detection (cacao and shade trees)
+    - Semantic segmentation for land cover classification
+    - Tree crown diameter estimation
+    - Canopy density calculation
+    - Integration with trained deep learning models
+    - Export to GeoJSON for further GIS analysis
+
+tracker=https://github.com/cabruca-segmentation/issues
+repository=https://github.com/cabruca-segmentation
+tags=segmentation, agroforestry, cabruca, deep learning, tree detection, remote sensing
+
+homepage=https://github.com/cabruca-segmentation
+category=Raster
+icon=icon.png
+experimental=False
+deprecated=False
+
+hasProcessingProvider=yes

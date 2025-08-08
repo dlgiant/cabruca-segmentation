@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  cabruca-api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: cabruca-segmentation-api
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount model and data
+      - ../outputs:/app/outputs:ro
+      - ../plantation-data.json:/app/plantation-data.json:ro
+      # Mount directories for processing
+      - ../api_uploads:/app/api_uploads
+      - ../api_results:/app/api_results
+      # Optional: mount test data
+      - ../data:/app/data:ro
+    environment:
+      - MODEL_PATH=/app/outputs/checkpoint_best.pth
+      - PLANTATION_DATA_PATH=/app/plantation-data.json
+    restart: unless-stopped
+    networks:
+      - cabruca-net
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 2G
+
+  # Optional: Nginx reverse proxy
+  nginx:
+    image: nginx:alpine
+    container_name: cabruca-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - cabruca-api
+    networks:
+      - cabruca-net
+    restart: unless-stopped
+
+  # Optional: Redis for caching
+  redis:
+    image: redis:alpine
+    container_name: cabruca-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - cabruca-net
+    restart: unless-stopped
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+
+networks:
+  cabruca-net:
+    driver: bridge

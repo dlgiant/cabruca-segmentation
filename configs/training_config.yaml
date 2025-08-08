@@ -1,0 +1,122 @@
+# Advanced Training Configuration for Cabruca Segmentation
+# Supports MLflow, W&B, and memory-efficient training on macOS
+
+# Model configuration
+model:
+  num_instance_classes: 3  # background, cacao, shade
+  num_semantic_classes: 6  # background, cacao, shade, understory, soil, shadows
+  use_sam: false
+  sam_checkpoint: null
+  pretrained_checkpoint: null  # Path to pretrained model
+
+# Data configuration
+data:
+  train_dir: "data/train"
+  val_dir: "data/val"
+  test_dir: "data/test"
+  train_annotations: "data/annotations/train.json"
+  val_annotations: "data/annotations/val.json"
+  test_annotations: "data/annotations/test.json"
+  batch_size: 4  # Adjust based on available memory
+  num_workers: 4  # Parallel data loading
+  tile_size: 512
+  overlap: 64
+  augmentation:
+    enabled: true
+    random_flip: 0.5
+    random_rotate: 0.3
+    brightness_contrast: 0.4
+    random_crop: false
+
+# Optimizer configuration
+optimizer:
+  type: "adamw"  # Options: adam, adamw, sgd, rmsprop
+  lr: 0.0001
+  weight_decay: 0.01
+  betas: [0.9, 0.999]
+  momentum: 0.9  # For SGD
+  nesterov: true  # For SGD
+  # Different learning rates for different parts
+  param_groups:
+    - name: "backbone"
+      lr: 0.00001
+      weight_decay: 0.01
+    - name: "heads"
+      lr: 0.0001
+      weight_decay: 0.01
+    - name: "custom"
+      lr: 0.0002
+      weight_decay: 0.001
+
+# Learning rate scheduler
+scheduler:
+  type: "cosine"  # Options: cosine, plateau, onecycle, cosine_warm_restarts, exponential
+  # Cosine annealing
+  T_max: 50
+  eta_min: 0.0000001
+  # ReduceLROnPlateau
+  factor: 0.5
+  patience: 10
+  min_lr: 0.0000001
+  # OneCycleLR
+  max_lr: 0.001
+  pct_start: 0.3
+  # CosineAnnealingWarmRestarts
+  T_0: 10
+  T_mult: 2
+  # Exponential
+  gamma: 0.95
+
+# Loss function weights
+loss:
+  instance_weight: 1.0
+  semantic_weight: 1.0
+  crown_weight: 0.5
+  density_weight: 0.5
+
+# Training configuration
+training:
+  num_epochs: 100
+  gradient_accumulation_steps: 2  # Effective batch size = batch_size * grad_accum
+  gradient_clip: 1.0  # Gradient clipping value
+  mixed_precision: false  # Enable for CUDA, not supported on MPS yet
+  
+  # Monitoring and checkpointing
+  monitor_metric: "val/mAP_50"  # Metric to monitor for best model
+  minimize_metric: false  # True for loss, False for accuracy/mAP
+  save_frequency: 10  # Save checkpoint every N epochs
+  log_interval: 10  # Log metrics every N batches
+  
+  # Early stopping
+  early_stopping_patience: 20  # Stop if no improvement for N epochs
+  
+  # Memory optimization
+  empty_cache_freq: 10  # Clear cache every N batches (for MPS/CUDA)
+
+# Experiment tracking
+tracking:
+  tensorboard: true  # Always enabled
+  mlflow: false  # Enable if MLflow is installed
+  mlflow_uri: "file:./mlruns"  # MLflow tracking URI
+  wandb: false  # Enable if W&B is installed
+  wandb_project: "cabruca-segmentation"
+  wandb_entity: null  # Your W&B username/team
+
+# Output configuration
+output_dir: "outputs"
+
+# Device configuration (auto, cpu, cuda, mps)
+device: "auto"  # Automatically selects best available device
+
+# Validation configuration
+validation:
+  frequency: 1  # Validate every N epochs
+  save_predictions: true  # Save prediction visualizations
+  calculate_agroforestry_metrics: true  # Domain-specific metrics
+  plantation_data: "data/plantation-data.json"  # For comparison
+
+# Testing configuration
+testing:
+  batch_size: 1
+  save_outputs: true
+  generate_report: true

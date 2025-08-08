@@ -1,0 +1,51 @@
+# Lightweight Training Configuration for macOS
+# Optimized for memory-constrained environments (CPU/MPS)
+
+model:
+  num_instance_classes: 3
+  num_semantic_classes: 6
+  use_sam: false
+
+data:
+  train_dir: "data/train"
+  val_dir: "data/val"
+  test_dir: "data/test"
+  batch_size: 2  # Smaller batch size for memory efficiency
+  num_workers: 2  # Fewer workers to save memory
+  tile_size: 256  # Smaller tiles
+  overlap: 32
+
+optimizer:
+  type: "adam"
+  lr: 0.0005
+  weight_decay: 0.0001
+
+scheduler:
+  type: "plateau"
+  factor: 0.5
+  patience: 5
+  min_lr: 0.00001
+
+loss:
+  instance_weight: 1.0
+  semantic_weight: 1.0
+  crown_weight: 0.3
+  density_weight: 0.3
+
+training:
+  num_epochs: 50
+  gradient_accumulation_steps: 4  # Simulate larger batch
+  gradient_clip: 1.0
+  mixed_precision: false
+  monitor_metric: "val/total_loss"
+  minimize_metric: true
+  save_frequency: 5
+  early_stopping_patience: 10
+
+tracking:
+  tensorboard: true
+  mlflow: false
+  wandb: false
+
+output_dir: "outputs"
+device: "auto"

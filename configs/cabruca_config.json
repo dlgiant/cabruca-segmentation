@@ -1,0 +1,65 @@
+{
+  "model": {
+    "num_instance_classes": 3,
+    "num_semantic_classes": 6,
+    "use_sam": false,
+    "sam_checkpoint": null
+  },
+  "data": {
+    "train_dir": "data/train",
+    "val_dir": "data/val",
+    "test_dir": "data/test",
+    "train_annotations": "data/annotations/train.json",
+    "val_annotations": "data/annotations/val.json",
+    "test_annotations": "data/annotations/test.json",
+    "batch_size": 4,
+    "num_workers": 4,
+    "tile_size": 512,
+    "overlap": 64
+  },
+  "optimizer": {
+    "type": "adamw",
+    "lr": 0.0001,
+    "weight_decay": 0.01
+  },
+  "scheduler": {
+    "type": "cosine",
+    "T_max": 50,
+    "eta_min": 1e-6
+  },
+  "loss": {
+    "instance_weight": 1.0,
+    "semantic_weight": 1.0,
+    "crown_weight": 0.5,
+    "density_weight": 0.5
+  },
+  "training": {
+    "num_epochs": 100,
+    "gradient_clip": 1.0,
+    "save_freq": 10,
+    "early_stopping": 20
+  },
+  "inference": {
+    "tile_size": 512,
+    "overlap": 64,
+    "batch_size": 1,
+    "confidence_threshold": 0.5
+  },
+  "output_dir": "outputs/cabruca_segmentation",
+  "use_wandb": false,
+  "classes": {
+    "instance_classes": {
+      "0": "background",
+      "1": "cacao_tree",
+      "2": "shade_tree"
+    },
+    "semantic_classes": {
+      "0": "background",
+      "1": "cacao_tree",
+      "2": "shade_tree",
+      "3": "understory",
+      "4": "bare_soil",
+      "5": "shadows"
+    }
+  }
+}

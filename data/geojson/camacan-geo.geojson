@@ -1,0 +1,26 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Camacan Municipality",
+        "state": "Bahia",
+        "country": "Brazil",
+        "description": "Municipal boundaries of Camacan, Bahia, Brazil - Compatible with Planet Labs AOI"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-39.6, -15.3],
+            [-39.6, -15.5],
+            [-39.35, -15.5],
+            [-39.35, -15.3],
+            [-39.6, -15.3]
+          ]
+        ]
+      }
+    }
+  ]
+}
