@@ -28,7 +28,7 @@ Thank you for your interest in contributing to the Cabruca Segmentation project\
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/cabruca-segmentation.git
+git clone https://github.com/dlgiant/cabruca-segmentation.git
 cd cabruca-segmentation
 
 # Create virtual environment

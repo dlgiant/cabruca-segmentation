@@ -1,0 +1,121 @@
+# Example Terraform variables for Cabruca Segmentation deployment in Brazil
+# Copy this to terraform.tfvars and update with your values
+
+# Basic Configuration
+project_name = "cabruca-segmentation"
+environment  = "prod"
+aws_region   = "sa-east-1"  # São Paulo - closest to Northeast Brazil
+
+# Domain Configuration
+domain_name = "cabruca.agro.br"  # Update with your domain
+# ssl_certificate_arn = "arn:aws:acm:sa-east-1:ACCOUNT:certificate/xxx"  # If you have existing cert
+
+# Instance Configuration
+instance_type_api        = "t3.large"      # For API servers
+instance_type_inference  = "g4dn.xlarge"   # For GPU inference
+instance_type_processing = "m5.2xlarge"    # For batch processing
+
+# Scaling Configuration
+api_min_instances       = 2   # Minimum API instances
+api_max_instances       = 10  # Maximum for auto-scaling
+inference_min_instances = 1   # Minimum GPU instances
+inference_max_instances = 5   # Maximum GPU instances
+
+# Feature Flags
+enable_gpu         = true   # Enable GPU for inference
+enable_cloudfront  = true   # Enable CDN for Northeast Brazil
+enable_elasticache = true   # Enable Redis caching
+enable_rds        = true    # Enable PostgreSQL database
+
+# Cost Optimization
+cost_optimization = {
+  use_spot_instances    = false  # Use spot instances for cost savings
+  spot_max_price       = "0.50"  # Maximum spot price
+  use_reserved_capacity = true   # Use reserved instances for production
+  auto_shutdown_dev    = false   # Auto-shutdown dev environment
+  shutdown_schedule    = ""      # Cron schedule for shutdown
+}
+
+# Monitoring Configuration
+monitoring_configuration = {
+  enable_cloudwatch   = true
+  enable_xray        = false
+  log_retention_days = 30
+  alarm_email        = "ops@cabruca.agro.br"  # Update with your email
+  slack_webhook_url  = ""  # Optional Slack webhook
+}
+
+# Backup Configuration
+backup_configuration = {
+  enable_backup        = true
+  backup_retention_days = 30
+  backup_window       = "03:00-04:00"        # 3-4 AM BRT
+  maintenance_window  = "sun:04:00-sun:05:00" # Sunday 4-5 AM BRT
+  multi_region_backup = false
+}
+
+# Network Configuration
+network_configuration = {
+  vpc_cidr             = "10.0.0.0/16"
+  enable_nat_gateway   = true
+  enable_vpn          = false
+  enable_private_link = false
+  allowed_ip_ranges   = [
+    "0.0.0.0/0"  # Allow all - restrict in production
+    # Add specific IP ranges for security:
+    # "200.xxx.xxx.xxx/32",  # Office IP
+    # "201.xxx.xxx.xxx/24"   # VPN range
+  ]
+}
+
+# API Rate Limits (per tier)
+api_rate_limits = {
+  "free" = {
+    requests_per_minute = 10
+    burst_size         = 20
+  }
+  "basic" = {
+    requests_per_minute = 60
+    burst_size         = 100
+  }
+  "premium" = {
+    requests_per_minute = 300
+    burst_size         = 500
+  }
+}
+
+# Model Configurations
+model_configurations = {
+  "small" = {
+    model_path   = "models/cabruca_small.pth"
+    batch_size   = 4
+    memory_limit = "2Gi"
+    cpu_limit    = "1"
+    gpu_enabled  = false
+  }
+  "medium" = {
+    model_path   = "models/cabruca_medium.pth"
+    batch_size   = 8
+    memory_limit = "4Gi"
+    cpu_limit    = "2"
+    gpu_enabled  = false
+  }
+  "large" = {
+    model_path   = "models/cabruca_large.pth"
+    batch_size   = 16
+    memory_limit = "8Gi"
+    cpu_limit    = "4"
+    gpu_enabled  = true
+  }
+}
+
+# Tags for resource organization
+tags = {
+  Project     = "Cabruca Segmentation"
+  Owner       = "AgroTech Team"
+  CostCenter  = "Research"
+  Environment = "Production"
+  Region      = "Brazil-Northeast"
+  Compliance  = "LGPD"
+  Contact     = "tech@cabruca.agro.br"
+}

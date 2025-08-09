@@ -343,7 +343,7 @@ ssh -i your-key.pem ubuntu@ec2-instance-ip
 # 3. Install dependencies
 sudo apt update
 sudo apt install -y python3-pip nginx git
-git clone https://github.com/yourrepo/cabruca-segmentation.git
+git clone https://github.com/dlgiant/cabruca-segmentation.git
 cd cabruca-segmentation
 pip3 install -r requirements.txt
 
@@ -729,6 +729,6 @@ def validate_image(file: UploadFile):
 ## Support
 
 For deployment assistance:
-- GitHub Issues: [Report problems](https://github.com/yourrepo/issues)
+- GitHub Issues: [Report problems](https://github.com/dlgiant/cabruca-segmentation/issues)
 - Documentation: [Full docs](https://docs.cabruca.ai)
 - Community: [Discord server](https://discord.gg/cabruca)

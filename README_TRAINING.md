@@ -357,6 +357,6 @@ If you use this training pipeline in your research, please cite:
 @software{cabruca_segmentation,
   title = {Cabruca Segmentation Training Pipeline},
   year = {2024},
-  url = {https://github.com/cabruca-segmentation}
+  url = {https://github.com/dlgiant/cabruca-segmentation}
 }
 ```
