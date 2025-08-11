@@ -3,10 +3,14 @@
 Launch the Cabruca Segmentation API server.
 """
 
+import agentops
 import os
 import sys
 import argparse
 from pathlib import Path
+
+# Initialize AgentOps for API server monitoring
+agentops.init(tags=["cabruca", "api-server", "inference-service"])
 
 # Add src to path
 sys.path.append('src')

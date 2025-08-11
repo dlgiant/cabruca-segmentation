@@ -4,6 +4,7 @@ Main training script for Cabruca Segmentation Model.
 Supports multiple training backends and experiment tracking.
 """
 
+import agentops
 import argparse
 import os
 import sys
@@ -18,6 +19,9 @@ from training.advanced_trainer import MemoryEfficientTrainer, load_config
 
 
 def main():
+    # Initialize AgentOps for training session tracking
+    agentops.init(auto_start_session=False, tags=["cabruca", "training", "segmentation"])
+    
     parser = argparse.ArgumentParser(
         description='Train Cabruca Segmentation Model',
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -182,20 +186,27 @@ Examples:
     print(" Starting Training")
     print("="*60)
     
+    # Start AgentOps session for this training run
+    experiment_name = args.experiment_name or f"cabruca_training_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    tracer = agentops.start_trace(trace_name=experiment_name, tags=["training", "model-training"])
+    
     try:
         trainer.train()
         print("\n✅ Training completed successfully!")
+        agentops.end_trace(tracer, end_state="Success")
         
     except KeyboardInterrupt:
         print("\n⚠️  Training interrupted by user")
         trainer.save_checkpoint('interrupted')
         trainer.tracker.finish()
+        agentops.end_trace(tracer, end_state="Fail")
         sys.exit(1)
         
     except Exception as e:
         print(f"\n❌ Training failed with error: {str(e)}")
         trainer.save_checkpoint('error')
         trainer.tracker.finish()
+        agentops.end_trace(tracer, end_state="Fail")
         raise
     
     print("\n📊 To monitor training progress, run:")
@@ -207,6 +218,7 @@ Examples:
 
 if __name__ == '__main__':
     import torch
+    from datetime import datetime
     
     # Check PyTorch version
     torch_version = torch.__version__
