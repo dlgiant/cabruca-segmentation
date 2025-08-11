@@ -3,6 +3,7 @@ FastAPI service for Cabruca segmentation inference.
 Provides REST endpoints for ML model predictions and analysis.
 """
 
+import agentops
 from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -117,6 +118,9 @@ async def startup_event():
     """Initialize model on startup."""
     global inference_engine, integration_module
     
+    # Initialize AgentOps for API service monitoring
+    agentops.init(tags=["cabruca", "api-service", "inference"])
+    
     logger.info(f"Loading model from {MODEL_PATH}")
     try:
         inference_engine = BatchInferenceEngine(
@@ -165,6 +169,7 @@ async def health_check():
 
 
 @app.post("/inference", response_model=InferenceResponse)
+@agentops.trace(name="Single Image Inference")
 async def inference(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
@@ -250,6 +255,7 @@ async def inference(
 
 
 @app.post("/batch")
+@agentops.trace(name="Batch Inference Processing")
 async def batch_inference(
     background_tasks: BackgroundTasks,
     request: BatchInferenceRequest
@@ -295,6 +301,7 @@ async def batch_inference(
 
 
 @app.post("/compare")
+@agentops.trace(name="ML Plantation Comparison")
 async def compare_with_plantation(
     file: UploadFile = File(...),
     plantation_data: UploadFile = File(None),

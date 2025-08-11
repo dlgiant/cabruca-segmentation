@@ -4,6 +4,7 @@ Main inference script for Cabruca Segmentation.
 Run batch inference with comprehensive analysis and visualization.
 """
 
+import agentops
 import argparse
 import sys
 from pathlib import Path
@@ -19,6 +20,9 @@ from inference.batch_inference import (
 
 
 def main():
+    # Initialize AgentOps for inference session tracking
+    agentops.init(auto_start_session=False, tags=["cabruca", "inference", "batch-processing"])
+    
     parser = argparse.ArgumentParser(
         description='Cabruca Segmentation Inference Pipeline',
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -147,8 +151,17 @@ Examples:
     output_path = Path(args.output)
     output_path.mkdir(parents=True, exist_ok=True)
     
-    # Process images
-    results = engine.process_batch(image_paths, str(output_path))
+    # Start AgentOps session for this inference batch
+    session_name = f"cabruca_inference_{len(image_paths)}_images"
+    tracer = agentops.start_trace(trace_name=session_name, tags=["inference", "batch-processing"])
+    
+    try:
+        # Process images
+        results = engine.process_batch(image_paths, str(output_path))
+        agentops.end_trace(tracer, end_state="Success")
+    except Exception as e:
+        agentops.end_trace(tracer, end_state="Fail")
+        raise
     
     if not results:
         print("❌ No results generated")

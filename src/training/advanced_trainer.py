@@ -3,6 +3,7 @@ Advanced training pipeline for Cabruca segmentation with experiment tracking.
 Supports MLflow, Weights & Biases, and memory-efficient training on macOS.
 """
 
+import agentops
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -411,6 +412,7 @@ class MemoryEfficientTrainer:
         
         return scheduler
     
+    @agentops.operation
     def train_epoch(self, epoch: int) -> Dict[str, float]:
         """
         Train for one epoch with memory-efficient techniques.
@@ -612,6 +614,7 @@ class MemoryEfficientTrainer:
         
         return metrics
     
+    @agentops.operation
     def train(self):
         """
         Main training loop with experiment tracking.

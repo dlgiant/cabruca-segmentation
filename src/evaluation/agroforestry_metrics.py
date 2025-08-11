@@ -3,6 +3,7 @@ Agroforestry-specific evaluation metrics for Cabruca system assessment.
 Includes tree detection metrics, canopy analysis, and spatial distribution evaluation.
 """
 
+import agentops
 import numpy as np
 import torch
 from typing import Dict, List, Tuple, Optional
@@ -36,6 +37,7 @@ class AgroforestryMetrics:
         self.distance_threshold = distance_threshold
         self.metrics_history = []
     
+    @agentops.tool(name="AgroforestryEvaluator")
     def evaluate_batch(self, predictions: Dict, ground_truth: Dict, 
                       plantation_data: Optional[str] = None) -> Dict:
         """

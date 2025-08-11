@@ -41,4 +41,6 @@ pytest-cov>=4.0.0
 python-dotenv>=1.0.0
 requests>=2.28.0
 aiofiles>=23.0.0
-EOF < /dev/null
+
+# Agent & LLM Monitoring
+agentops>=0.3.0

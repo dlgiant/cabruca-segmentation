@@ -3,6 +3,7 @@ Batch inference pipeline for Cabruca segmentation.
 Processes multiple images efficiently with comprehensive analysis.
 """
 
+import agentops
 import torch
 import numpy as np
 import cv2
@@ -163,6 +164,7 @@ class BatchInferenceEngine:
         
         return model
     
+    @agentops.operation
     def process_batch(self, image_paths: List[str], 
                      output_dir: str = None) -> List[InferenceResult]:
         """
@@ -197,6 +199,7 @@ class BatchInferenceEngine:
         
         return results
     
+    @agentops.operation  
     def process_single(self, image_path: str) -> InferenceResult:
         """
         Process a single image.
