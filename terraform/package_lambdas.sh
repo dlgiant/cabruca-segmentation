@@ -16,9 +16,9 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m'
 
-# Base directory
-BASE_DIR="/Users/ricardonunes/cabruca-segmentation/terraform"
-cd $BASE_DIR
+# Base directory - use script's directory
+BASE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+cd "$BASE_DIR"
 
 # Function to package a Lambda function
 package_lambda() {
