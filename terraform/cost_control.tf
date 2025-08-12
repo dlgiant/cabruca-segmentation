@@ -662,9 +662,9 @@ resource "aws_cloudwatch_dashboard" "cost_control" {
 
         properties = {
           metrics = [
-            ["AWS/Lambda", "Throttles", { "FunctionName" = "${local.app_name}-manager-agent" }, { stat = "Sum", label = "Manager Agent" }],
-            ["AWS/Lambda", "Throttles", { "FunctionName" = "${local.app_name}-engineer-agent" }, { stat = "Sum", label = "Engineer Agent" }],
-            ["AWS/Lambda", "Throttles", { "FunctionName" = "${local.app_name}-qa-agent" }, { stat = "Sum", label = "QA Agent" }]
+            ["AWS/Lambda", "Throttles", "FunctionName", "${local.app_name}-manager-agent", { stat = "Sum", label = "Manager Agent" }],
+            ["AWS/Lambda", "Throttles", "FunctionName", "${local.app_name}-engineer-agent", { stat = "Sum", label = "Engineer Agent" }],
+            ["AWS/Lambda", "Throttles", "FunctionName", "${local.app_name}-qa-agent", { stat = "Sum", label = "QA Agent" }]
           ]
           view    = "timeSeries"
           stacked = false
