@@ -150,25 +150,31 @@ resource "aws_api_gateway_integration" "qa_lambda_integration" {
 resource "aws_lambda_permission" "manager_api_gateway" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
-  function_name = "manager-agent-${var.environment}"
+  function_name = aws_lambda_function.agents["manager"].function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_api_gateway_rest_api.agent_api.execution_arn}/*/*"
+  
+  depends_on = [aws_lambda_function.agents]
 }
 
 resource "aws_lambda_permission" "engineer_api_gateway" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
-  function_name = "engineer-agent-${var.environment}"
+  function_name = aws_lambda_function.agents["engineer"].function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_api_gateway_rest_api.agent_api.execution_arn}/*/*"
+  
+  depends_on = [aws_lambda_function.agents]
 }
 
 resource "aws_lambda_permission" "qa_api_gateway" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
-  function_name = "${var.environment}-qa-agent"
+  function_name = aws_lambda_function.agents["qa"].function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_api_gateway_rest_api.agent_api.execution_arn}/*/*"
+  
+  depends_on = [aws_lambda_function.agents]
 }
 
 # ========================================
@@ -585,9 +591,9 @@ resource "aws_cloudwatch_dashboard" "cost_control" {
 
         properties = {
           metrics = [
-            ["AWS/Lambda", "Invocations", { stat = "Sum", label = "Manager Agent" }, { "FunctionName" = "manager-agent-${var.environment}" }],
-            ["...", { stat = "Sum", label = "Engineer Agent" }, { "FunctionName" = "engineer-agent-${var.environment}" }],
-            ["...", { stat = "Sum", label = "QA Agent" }, { "FunctionName" = "${var.environment}-qa-agent" }]
+            ["AWS/Lambda", "Invocations", { "FunctionName" = "${local.app_name}-manager-agent" }, { stat = "Sum", label = "Manager Agent" }],
+            ["AWS/Lambda", "Invocations", { "FunctionName" = "${local.app_name}-engineer-agent" }, { stat = "Sum", label = "Engineer Agent" }],
+            ["AWS/Lambda", "Invocations", { "FunctionName" = "${local.app_name}-qa-agent" }, { stat = "Sum", label = "QA Agent" }]
           ]
           view    = "timeSeries"
           stacked = false
@@ -605,9 +611,9 @@ resource "aws_cloudwatch_dashboard" "cost_control" {
 
         properties = {
           metrics = [
-            ["AWS/Lambda", "Duration", { stat = "Average", label = "Manager Agent" }, { "FunctionName" = "manager-agent-${var.environment}" }],
-            ["...", { stat = "Average", label = "Engineer Agent" }, { "FunctionName" = "engineer-agent-${var.environment}" }],
-            ["...", { stat = "Average", label = "QA Agent" }, { "FunctionName" = "${var.environment}-qa-agent" }]
+            ["AWS/Lambda", "Duration", { "FunctionName" = "${local.app_name}-manager-agent" }, { stat = "Average", label = "Manager Agent" }],
+            ["AWS/Lambda", "Duration", { "FunctionName" = "${local.app_name}-engineer-agent" }, { stat = "Average", label = "Engineer Agent" }],
+            ["AWS/Lambda", "Duration", { "FunctionName" = "${local.app_name}-qa-agent" }, { stat = "Average", label = "QA Agent" }]
           ]
           view    = "timeSeries"
           stacked = false
@@ -656,9 +662,9 @@ resource "aws_cloudwatch_dashboard" "cost_control" {
 
         properties = {
           metrics = [
-            ["AWS/Lambda", "Throttles", { stat = "Sum", label = "Manager Agent" }, { "FunctionName" = "manager-agent-${var.environment}" }],
-            ["...", { stat = "Sum", label = "Engineer Agent" }, { "FunctionName" = "engineer-agent-${var.environment}" }],
-            ["...", { stat = "Sum", label = "QA Agent" }, { "FunctionName" = "${var.environment}-qa-agent" }]
+            ["AWS/Lambda", "Throttles", { "FunctionName" = "${local.app_name}-manager-agent" }, { stat = "Sum", label = "Manager Agent" }],
+            ["AWS/Lambda", "Throttles", { "FunctionName" = "${local.app_name}-engineer-agent" }, { stat = "Sum", label = "Engineer Agent" }],
+            ["AWS/Lambda", "Throttles", { "FunctionName" = "${local.app_name}-qa-agent" }, { stat = "Sum", label = "QA Agent" }]
           ]
           view    = "timeSeries"
           stacked = false

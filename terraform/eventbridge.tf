@@ -2,6 +2,12 @@
 # Cost-optimized configuration to stay under $10/month
 # Pricing: $1 per million custom events published + $0.64 per million events matched by rules
 
+# Import existing EventBridge bus if it exists
+import {
+  to = aws_cloudwatch_event_bus.cabruca_agents
+  id = "cabruca-agents-bus"
+}
+
 # ==================== EVENT BUS ====================
 # Custom Event Bus for Agent Communications
 resource "aws_cloudwatch_event_bus" "cabruca_agents" {
@@ -15,6 +21,11 @@ resource "aws_cloudwatch_event_bus" "cabruca_agents" {
       CostCenter = "EventBridge"
     }
   )
+  
+  lifecycle {
+    create_before_destroy = false
+    ignore_changes        = [tags]
+  }
 }
 
 # Archive for failed events (cheaper than DLQ for low volume)

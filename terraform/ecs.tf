@@ -411,7 +411,7 @@ resource "aws_ecs_service" "api" {
   deployment_maximum_percent         = 200
   
   depends_on = [
-    aws_lb_listener.https,
+    aws_lb_listener.http,
     aws_iam_role_policy.ecs_task_s3
   ]
   
@@ -443,7 +443,7 @@ resource "aws_ecs_service" "streamlit" {
   deployment_maximum_percent         = 200
   
   depends_on = [
-    aws_lb_listener.https,
+    aws_lb_listener.http,
     aws_iam_role_policy.ecs_task_s3
   ]
   
