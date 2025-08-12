@@ -1,0 +1,4 @@
+boto3==1.26.137
+agentops==0.3.0
+python-json-logger==2.0.7
+numpy==1.24.3

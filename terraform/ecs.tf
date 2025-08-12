@@ -163,8 +163,8 @@ resource "aws_ecs_task_definition" "api" {
   family                   = "${local.app_name}-api"
   network_mode            = "awsvpc"
   requires_compatibilities = ["FARGATE"]
-  cpu                     = "2048"  # 2 vCPU
-  memory                  = "4096"  # 4 GB
+  cpu                     = "256"   # 0.25 vCPU - Minimum for Fargate
+  memory                  = "512"   # 0.5 GB - Minimum for Fargate
   execution_role_arn      = aws_iam_role.ecs_task_execution.arn
   task_role_arn          = aws_iam_role.ecs_task.arn
   
@@ -246,8 +246,8 @@ resource "aws_ecs_task_definition" "streamlit" {
   family                   = "${local.app_name}-streamlit"
   network_mode            = "awsvpc"
   requires_compatibilities = ["FARGATE"]
-  cpu                     = "2048"  # 2 vCPU
-  memory                  = "4096"  # 4 GB
+  cpu                     = "256"   # 0.25 vCPU - Minimum for Fargate
+  memory                  = "512"   # 0.5 GB - Minimum for Fargate
   execution_role_arn      = aws_iam_role.ecs_task_execution.arn
   task_role_arn          = aws_iam_role.ecs_task.arn
   

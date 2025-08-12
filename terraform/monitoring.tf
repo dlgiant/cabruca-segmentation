@@ -365,6 +365,7 @@ EOF
 
 # Cost Monitoring
 resource "aws_budgets_budget" "monthly" {
+  count             = var.monitoring_configuration.alarm_email != "" ? 1 : 0
   name              = "${local.app_name}-monthly-budget"
   budget_type       = "COST"
   limit_amount      = "1000"  # Adjust based on your budget
@@ -377,7 +378,7 @@ resource "aws_budgets_budget" "monthly" {
     threshold                  = 80
     threshold_type            = "PERCENTAGE"
     notification_type         = "ACTUAL"
-    subscriber_email_addresses = var.monitoring_configuration.alarm_email != "" ? [var.monitoring_configuration.alarm_email] : []
+    subscriber_email_addresses = [var.monitoring_configuration.alarm_email]
   }
   
   notification {

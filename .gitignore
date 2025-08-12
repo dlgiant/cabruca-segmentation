@@ -119,3 +119,11 @@ plantation-data.json
 test_*.jpg
 test_*.png
 *.old
+
+# Terraform
+*.tfstate
+*.tfstate.*
+*.tfplan
+.terraform/
+terraform/.terraform/
+**/.terraform/

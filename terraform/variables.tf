@@ -254,3 +254,100 @@ variable "tags" {
     Compliance  = "LGPD"
   }
 }
+
+# ML Pipeline Variables
+variable "enable_ml_pipeline" {
+  description = "Enable ML pipeline components (SageMaker, Step Functions, etc.)"
+  type        = bool
+  default     = true
+}
+
+variable "ml_instance_type" {
+  description = "SageMaker notebook instance type"
+  type        = string
+  default     = "ml.t3.medium"  # Lowest cost ML instance
+}
+
+variable "training_cpu" {
+  description = "CPU units for training tasks (256 = 0.25 vCPU)"
+  type        = string
+  default     = "1024"  # 1 vCPU
+}
+
+variable "training_memory" {
+  description = "Memory for training tasks in MB"
+  type        = string
+  default     = "4096"  # 4 GB
+}
+
+variable "annotation_enabled" {
+  description = "Enable annotation service by default"
+  type        = bool
+  default     = false  # Start on-demand to save costs
+}
+
+variable "enable_scheduled_training" {
+  description = "Enable scheduled training runs"
+  type        = bool
+  default     = false  # Manual training for MVP
+}
+
+variable "training_schedule" {
+  description = "Schedule expression for training runs (e.g., 'rate(7 days)')"
+  type        = string
+  default     = "rate(7 days)"
+}
+
+# QA Agent Variables
+variable "api_endpoint" {
+  description = "API endpoint URL for QA testing"
+  type        = string
+  default     = ""
+}
+
+variable "cost_threshold" {
+  description = "Monthly cost threshold in USD for cost compliance checks"
+  type        = number
+  default     = 100
+}
+
+variable "eventbridge_bus_name" {
+  description = "Name of the EventBridge bus for agent communication"
+  type        = string
+  default     = ""
+}
+
+# Cost Control Variables
+variable "alert_email" {
+  description = "Email address for cost and system alerts"
+  type        = string
+  sensitive   = true
+}
+
+variable "alert_phone" {
+  description = "Phone number for critical cost alerts (SMS)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "agentops_api_key" {
+  description = "AgentOps API key for tracking agent activity"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "cost_alert_threshold" {
+  description = "Monthly cost threshold for alerts (USD)"
+  type        = number
+  default     = 400  # 80% of $500 budget
+}
+
+variable "enable_org_policies" {
+  description = "Enable AWS Organizations policies for cost allocation tags"
+  type        = bool
+  default     = false
+}
+
+# aws_region variable is already defined in main.tf

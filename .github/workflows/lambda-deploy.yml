@@ -1,0 +1,284 @@
+name: Deploy Lambda Functions
+
+on:
+  push:
+    paths:
+      - 'terraform/*_agent/**'
+      - 'terraform/package_lambdas.sh'
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'mvp'
+        type: choice
+        options:
+          - mvp
+          - staging
+          - production
+      agents:
+        description: 'Agents to deploy (comma-separated or "all")'
+        required: false
+        default: 'all'
+
+env:
+  AWS_REGION: sa-east-1
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  detect-changes:
+    name: Detect Changed Agents
+    runs-on: ubuntu-latest
+    outputs:
+      agents: ${{ steps.changes.outputs.agents }}
+      
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+          
+      - name: Detect changed agents
+        id: changes
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ "${{ github.event.inputs.agents }}" = "all" ]; then
+              echo "agents=[\"manager\",\"engineer\",\"qa\",\"researcher\",\"data_processor\"]" >> $GITHUB_OUTPUT
+            else
+              # Convert comma-separated list to JSON array
+              AGENTS=$(echo "${{ github.event.inputs.agents }}" | jq -R 'split(",") | map(gsub(" "; ""))')
+              echo "agents=$AGENTS" >> $GITHUB_OUTPUT
+            fi
+          else
+            # Detect changed directories
+            CHANGED_AGENTS="[]"
+            
+            for agent in manager engineer qa researcher data_processor; do
+              if git diff --name-only HEAD^ HEAD | grep -q "terraform/${agent}_agent/"; then
+                CHANGED_AGENTS=$(echo $CHANGED_AGENTS | jq ". += [\"$agent\"]")
+              fi
+            done
+            
+            echo "agents=$CHANGED_AGENTS" >> $GITHUB_OUTPUT
+          fi
+
+  deploy-lambda:
+    name: Deploy ${{ matrix.agent }} Agent
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.agents != '[]'
+    
+    strategy:
+      matrix:
+        agent: ${{ fromJson(needs.detect-changes.outputs.agents) }}
+        
+    environment:
+      name: ${{ github.event.inputs.environment || 'mvp' }}
+      
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+          
+      - name: Cache Python dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ matrix.agent }}-${{ hashFiles(format('terraform/{0}_agent/requirements.txt', matrix.agent)) }}
+          restore-keys: |
+            ${{ runner.os }}-pip-${{ matrix.agent }}-
+            ${{ runner.os }}-pip-
+            
+      - name: Package Lambda function
+        working-directory: ./terraform
+        run: |
+          AGENT_DIR="${{ matrix.agent }}_agent"
+          echo "Packaging ${{ matrix.agent }} agent..."
+          
+          # Create package directory
+          rm -rf ${AGENT_DIR}/package
+          mkdir -p ${AGENT_DIR}/package
+          
+          # Copy Lambda function
+          cp ${AGENT_DIR}/lambda_function.py ${AGENT_DIR}/package/
+          
+          # Install dependencies if requirements.txt exists
+          if [ -f ${AGENT_DIR}/requirements.txt ]; then
+            pip install -r ${AGENT_DIR}/requirements.txt -t ${AGENT_DIR}/package/ --quiet
+          fi
+          
+          # Create ZIP file
+          cd ${AGENT_DIR}/package
+          zip -r ../lambda_function.zip . -q
+          cd ../..
+          
+          echo "✅ ${{ matrix.agent }} agent packaged successfully"
+          
+      - name: Deploy Lambda function
+        run: |
+          ENVIRONMENT="${{ github.event.inputs.environment || 'mvp' }}"
+          FUNCTION_NAME="cabruca-mvp-${ENVIRONMENT}-${{ matrix.agent }}-agent"
+          
+          # Update function code
+          aws lambda update-function-code \
+            --function-name ${FUNCTION_NAME} \
+            --zip-file fileb://terraform/${{ matrix.agent }}_agent/lambda_function.zip \
+            --region ${{ env.AWS_REGION }} \
+            --output json | jq '.LastModified'
+            
+          # Wait for update to complete
+          aws lambda wait function-updated \
+            --function-name ${FUNCTION_NAME} \
+            --region ${{ env.AWS_REGION }}
+            
+          echo "✅ Deployed ${{ matrix.agent }} agent to ${FUNCTION_NAME}"
+          
+      - name: Update Lambda configuration
+        run: |
+          ENVIRONMENT="${{ github.event.inputs.environment || 'mvp' }}"
+          FUNCTION_NAME="cabruca-mvp-${ENVIRONMENT}-${{ matrix.agent }}-agent"
+          
+          # Update environment variables
+          aws lambda update-function-configuration \
+            --function-name ${FUNCTION_NAME} \
+            --environment Variables="{
+              ENVIRONMENT=\"${ENVIRONMENT}\",
+              AGENT_TYPE=\"${{ matrix.agent }}\",
+              AGENTOPS_API_KEY=\"${{ secrets.AGENTOPS_API_KEY }}\",
+              GITHUB_SECRET_NAME=\"cabruca-${ENVIRONMENT}-github-token\",
+              EVENT_BUS_NAME=\"cabruca-agents-bus\",
+              DYNAMODB_STATE_TABLE=\"cabruca-mvp-${ENVIRONMENT}-agent-state\",
+              DYNAMODB_TASKS_TABLE=\"cabruca-mvp-${ENVIRONMENT}-agent-tasks\",
+              DYNAMODB_MEMORY_TABLE=\"cabruca-mvp-${ENVIRONMENT}-agent-memory\",
+              LOG_LEVEL=\"INFO\"
+            }" \
+            --timeout 300 \
+            --memory-size 2048 \
+            --region ${{ env.AWS_REGION }} \
+            --output json | jq '.LastModified'
+            
+      - name: Test Lambda function
+        run: |
+          ENVIRONMENT="${{ github.event.inputs.environment || 'mvp' }}"
+          FUNCTION_NAME="cabruca-mvp-${ENVIRONMENT}-${{ matrix.agent }}-agent"
+          
+          # Test with health check
+          echo '{"action": "health_check"}' | base64 > /tmp/test_payload.txt
+          
+          aws lambda invoke \
+            --function-name ${FUNCTION_NAME} \
+            --payload file:///tmp/test_payload.txt \
+            --region ${{ env.AWS_REGION }} \
+            /tmp/response.json \
+            --output json | jq '.StatusCode'
+            
+          # Check response
+          cat /tmp/response.json | jq '.'
+          
+          # Verify health check passed
+          if cat /tmp/response.json | jq -e '.body | fromjson | .status == "healthy"' > /dev/null; then
+            echo "✅ Health check passed for ${{ matrix.agent }} agent"
+          else
+            echo "❌ Health check failed for ${{ matrix.agent }} agent"
+            exit 1
+          fi
+
+  integration-test:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: deploy-lambda
+    if: success()
+    
+    environment:
+      name: ${{ github.event.inputs.environment || 'mvp' }}
+      
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+          
+      - name: Run orchestration test
+        run: |
+          ENVIRONMENT="${{ github.event.inputs.environment || 'mvp' }}"
+          
+          # Test pipeline monitoring
+          PAYLOAD=$(cat <<EOF | base64
+          {
+            "action": "monitor_pipeline",
+            "pipeline_data": {
+              "test_status": "failed",
+              "build_status": "passed",
+              "quality_score": 75,
+              "test_coverage": 65
+            },
+            "repo_info": {
+              "owner": "${{ github.repository_owner }}",
+              "repo": "${{ github.event.repository.name }}",
+              "branch": "${{ github.ref_name }}"
+            }
+          }
+          EOF
+          )
+          
+          echo $PAYLOAD > /tmp/orchestration_test.txt
+          
+          aws lambda invoke \
+            --function-name cabruca-mvp-${ENVIRONMENT}-manager-agent \
+            --payload file:///tmp/orchestration_test.txt \
+            --region ${{ env.AWS_REGION }} \
+            /tmp/orchestration_response.json
+            
+          echo "Orchestration Response:"
+          cat /tmp/orchestration_response.json | jq '.body | fromjson'
+          
+      - name: Check CloudWatch Logs
+        run: |
+          ENVIRONMENT="${{ github.event.inputs.environment || 'mvp' }}"
+          
+          for AGENT in manager engineer qa researcher data-processor; do
+            echo "Recent logs for ${AGENT} agent:"
+            aws logs tail /aws/lambda/cabruca-mvp-${ENVIRONMENT}-${AGENT}-agent \
+              --region ${{ env.AWS_REGION }} \
+              --since 5m \
+              --filter-pattern "ERROR" || echo "No errors found"
+          done
+
+  notify:
+    name: Deployment Notification
+    runs-on: ubuntu-latest
+    needs: [deploy-lambda, integration-test]
+    if: always()
+    
+    steps:
+      - name: Send Slack notification
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          text: |
+            Lambda Deployment Status: ${{ needs.deploy-lambda.result }}
+            Environment: ${{ github.event.inputs.environment || 'mvp' }}
+            Agents: ${{ needs.detect-changes.outputs.agents }}
+            Triggered by: ${{ github.actor }}
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        if: env.SLACK_WEBHOOK != ''
+        continue-on-error: true

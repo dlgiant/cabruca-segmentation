@@ -1,0 +1,60 @@
+# Core dependencies
+boto3==1.34.14
+botocore==1.34.14
+
+# LangChain and AI dependencies
+langchain==0.1.0
+langchain-community==0.0.38
+anthropic==0.18.1
+openai==1.12.0  # For potential future integrations
+tiktoken==0.5.2  # Token counting
+
+# GitHub integration
+PyGithub==2.1.1
+
+# Data handling and utilities
+pydantic==2.5.3
+dataclasses-json==0.6.3
+python-dateutil==2.8.2
+typing-extensions==4.9.0
+
+# Terraform and HCL parsing (optional, for advanced Terraform operations)
+python-hcl2==4.3.2
+pyhcl==0.4.5
+
+# AWS CodeCommit support
+git-remote-codecommit==1.17
+
+# JSON and YAML processing
+pyyaml==6.0.1
+jsonschema==4.20.0
+
+# HTTP and API clients
+requests==2.31.0
+urllib3==2.1.0
+
+# Async support
+aiohttp==3.9.1
+asyncio==3.4.3
+
+# Testing utilities (for the testing tool)
+pytest==7.4.4
+pytest-asyncio==0.23.3
+
+# Code analysis utilities
+ast-grep-py==0.39.3
+tree-sitter==0.20.4
+
+# Documentation parsing
+docstring-parser==0.15
+
+# Environment and configuration
+python-dotenv==1.0.0
+
+# Monitoring and logging
+structlog==24.1.0
+
+# Optional: Code formatting and linting tools for generated code validation
+black==23.12.1
+isort==5.13.2
+flake8==7.0.0

@@ -1,0 +1,54 @@
+{
+  "id": "test-event-001",
+  "source": "manager.agent",
+  "detail-type": "SystemIssue.high_error_rate",
+  "time": "2024-01-15T10:00:00Z",
+  "region": "us-east-1",
+  "account": "123456789012",
+  "detail": {
+    "issue": {
+      "type": "high_error_rate",
+      "severity": "high",
+      "description": "API Gateway experiencing high error rate (15%) exceeding threshold (5%)",
+      "affected_service": "API Gateway",
+      "metrics": {
+        "error_rate": 0.15,
+        "total_requests": 10000,
+        "failed_requests": 1500,
+        "time_window": "5 minutes"
+      },
+      "recommended_action": "Review recent deployments and implement retry logic",
+      "timestamp": "2024-01-15T10:00:00Z"
+    },
+    "llm_analysis": {
+      "severity": "high",
+      "should_alert": true,
+      "recommended_actions": [
+        "Implement exponential backoff retry logic in Lambda functions",
+        "Increase API Gateway timeout from 30s to 60s",
+        "Add circuit breaker pattern to prevent cascade failures",
+        "Review and optimize database connection pooling"
+      ],
+      "root_cause_analysis": "Analysis indicates timeout issues due to increased database response times. Recent deployment may have introduced inefficient queries.",
+      "auto_remediation": "implement_retry_and_timeout_fix"
+    },
+    "context": {
+      "environment": "production",
+      "region": "us-east-1",
+      "recent_deployments": [
+        {
+          "timestamp": "2024-01-15T08:00:00Z",
+          "service": "user-api",
+          "version": "2.3.1",
+          "commit": "abc123def"
+        }
+      ],
+      "metrics_summary": {
+        "error_rate": 0.15,
+        "avg_latency": 4500,
+        "p99_latency": 12000,
+        "total_invocations": 10000
+      }
+    }
+  }
+}

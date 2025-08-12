@@ -1,0 +1,24 @@
+# Manager Agent Terraform Configuration
+# Copy this file to terraform.tfvars and fill in your values
+
+# Required: Your Anthropic API key for Claude access
+anthropic_api_key = "sk-ant-api03-xxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+# Environment name (dev, staging, production)
+environment = "production"
+
+# DynamoDB table name for user feedback
+feedback_table_name = "user-feedback"
+
+# EventBridge bus name for publishing events
+event_bus_name = "default"
+
+# Optional: AWS region (if not using default)
+# aws_region = "us-east-1"
+
+# Optional: Custom tags
+# tags = {
+#   Project = "Autonomous Agent System"
+#   Owner   = "DevOps Team"
+#   CostCenter = "Engineering"
+# }

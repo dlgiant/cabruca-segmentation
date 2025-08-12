@@ -1,0 +1,28 @@
+{
+  "Entries": [
+    {
+      "Source": "cabruca.agents.monitor",
+      "DetailType": "Issue Detection Event",
+      "EventBusName": "cabruca-agents-bus",
+      "Detail": "{\"issueId\":\"test-001\",\"timestamp\":\"2024-01-15T10:30:00Z\",\"severity\":\"HIGH\",\"agentId\":\"monitor-test-001\",\"issueType\":\"PERFORMANCE\",\"description\":\"Test event for API performance issue\",\"affectedResources\":[\"api-endpoint-001\"],\"metrics\":{\"response_time\":5.2,\"error_rate\":0.02},\"suggestedActions\":[\"Scale up resources\",\"Review database queries\"]}"
+    },
+    {
+      "Source": "cabruca.agents.product",
+      "DetailType": "Feature Request Event",
+      "EventBusName": "cabruca-agents-bus",
+      "Detail": "{\"requestId\":\"test-002\",\"timestamp\":\"2024-01-15T10:31:00Z\",\"agentId\":\"product-test-001\",\"featureType\":\"ML_MODEL\",\"priority\":\"MEDIUM\",\"description\":\"Test feature request for improved accuracy\",\"businessJustification\":\"Customer feedback indicates need for better precision\",\"estimatedImpact\":{\"users\":100,\"revenue\":10000,\"efficiency\":15}}"
+    },
+    {
+      "Source": "cabruca.agents.developer",
+      "DetailType": "Code Change Event",
+      "EventBusName": "cabruca-agents-bus",
+      "Detail": "{\"changeId\":\"test-003\",\"timestamp\":\"2024-01-15T10:32:00Z\",\"agentId\":\"dev-test-001\",\"repository\":\"cabruca-segmentation\",\"branch\":\"test-branch\",\"changeType\":\"BUGFIX\",\"status\":\"IN_REVIEW\",\"commitHash\":\"abc123\",\"files\":[{\"path\":\"src/test.py\",\"additions\":10,\"deletions\":5}]}"
+    },
+    {
+      "Source": "cabruca.agents.tester",
+      "DetailType": "Test Results Event",
+      "EventBusName": "cabruca-agents-bus",
+      "Detail": "{\"testRunId\":\"test-004\",\"timestamp\":\"2024-01-15T10:33:00Z\",\"agentId\":\"test-agent-001\",\"testType\":\"UNIT\",\"status\":\"PASSED\",\"summary\":{\"total\":50,\"passed\":50,\"failed\":0,\"skipped\":0,\"duration\":120.5},\"coverage\":{\"lines\":85.0,\"branches\":80.0,\"functions\":90.0}}"
+    }
+  ]
+}

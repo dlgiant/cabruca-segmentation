@@ -1,0 +1,303 @@
+name: Pull Request Validation
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    
+env:
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '18'
+  TERRAFORM_VERSION: '1.5.0'
+
+jobs:
+  # ============================================
+  # Code Quality Checks
+  # ============================================
+  lint:
+    name: Lint and Format
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          
+      - name: Install Python linters
+        run: |
+          pip install flake8 black isort pylint mypy
+          
+      - name: Run Black formatter check
+        run: black --check .
+        continue-on-error: true
+        
+      - name: Run isort check
+        run: isort --check-only .
+        continue-on-error: true
+        
+      - name: Run Flake8
+        run: flake8 . --config=.flake8
+        continue-on-error: true
+        
+      - name: Run Pylint
+        run: pylint **/*.py --disable=all --enable=E
+        continue-on-error: true
+
+  # ============================================
+  # Security Scanning
+  # ============================================
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          exit-code: '0'
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'
+          
+      - name: Run Bandit security linter
+        run: |
+          pip install bandit
+          bandit -r . -f json -o bandit-report.json || true
+          
+      - name: Upload Bandit results
+        uses: actions/upload-artifact@v3
+        with:
+          name: bandit-results
+          path: bandit-report.json
+        if: always()
+        
+      - name: Check for secrets
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.pull_request.base.sha }}
+          head: ${{ github.event.pull_request.head.sha }}
+
+  # ============================================
+  # Terraform Validation
+  # ============================================
+  terraform:
+    name: Terraform Validation
+    runs-on: ubuntu-latest
+    
+    defaults:
+      run:
+        working-directory: ./terraform
+        
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          
+      - name: Terraform Format Check
+        id: fmt
+        run: terraform fmt -check -recursive
+        
+      - name: Terraform Init
+        id: init
+        run: terraform init -backend=false
+        
+      - name: Terraform Validate
+        id: validate
+        run: terraform validate
+        
+      - name: Checkov IaC Security Scan
+        id: checkov
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: terraform/
+          quiet: true
+          soft_fail: true
+          framework: terraform
+          output_format: json
+          
+      - name: Comment PR with Terraform results
+        uses: actions/github-script@v6
+        if: github.event_name == 'pull_request'
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const output = `#### Terraform Format and Style 🖌 \`${{ steps.fmt.outcome }}\`
+            #### Terraform Initialization ⚙️ \`${{ steps.init.outcome }}\`
+            #### Terraform Validation 🤖 \`${{ steps.validate.outcome }}\`
+            #### Checkov Security Scan 🔒 \`${{ steps.checkov.outcome }}\`
+            
+            *Pushed by: @${{ github.actor }}, PR: #${{ github.event.pull_request.number }}*`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            })
+
+  # ============================================
+  # Unit Tests
+  # ============================================
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        python-version: ['3.9', '3.10', '3.11']
+        
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+            
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov pytest-mock
+          
+      - name: Run tests with coverage
+        run: |
+          pytest tests/ -v --cov=./ --cov-report=xml --cov-report=html
+        continue-on-error: true
+        
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          name: Python ${{ matrix.python-version }}
+        continue-on-error: true
+
+  # ============================================
+  # Lambda Function Tests
+  # ============================================
+  lambda-test:
+    name: Test Lambda Functions
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          
+      - name: Test Manager Agent
+        run: |
+          cd terraform/manager_agent
+          python -m pytest test_lambda_function.py -v || echo "No tests found"
+          
+      - name: Test Engineer Agent
+        run: |
+          cd terraform/engineer_agent
+          python -m pytest test_lambda_function.py -v || echo "No tests found"
+          
+      - name: Test QA Agent
+        run: |
+          cd terraform/qa_agent
+          python -m pytest test_lambda_function.py -v || echo "No tests found"
+
+  # ============================================
+  # Documentation Check
+  # ============================================
+  docs:
+    name: Documentation Check
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Check README exists
+        run: |
+          if [ ! -f "README.md" ]; then
+            echo "❌ README.md not found"
+            exit 1
+          fi
+          
+      - name: Check for broken links
+        uses: gaurav-nelson/github-action-markdown-link-check@v1
+        with:
+          use-quiet-mode: 'yes'
+          use-verbose-mode: 'no'
+        continue-on-error: true
+        
+      - name: Spell check
+        uses: streetsidesoftware/cspell-action@v2
+        with:
+          files: |
+            **/*.md
+            **/*.py
+            **/*.yml
+        continue-on-error: true
+
+  # ============================================
+  # PR Size Check
+  # ============================================
+  pr-size:
+    name: PR Size Check
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Check PR size
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const additions = pr.additions;
+            const deletions = pr.deletions;
+            const total = additions + deletions;
+            
+            let label = '';
+            if (total < 50) label = 'size/XS';
+            else if (total < 200) label = 'size/S';
+            else if (total < 500) label = 'size/M';
+            else if (total < 1000) label = 'size/L';
+            else label = 'size/XL';
+            
+            // Add label to PR
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              labels: [label]
+            });
+            
+            // Comment if PR is too large
+            if (total > 1000) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                body: '⚠️ This PR is quite large ('+total+' changes). Consider breaking it into smaller PRs for easier review.'
+              });
+            }

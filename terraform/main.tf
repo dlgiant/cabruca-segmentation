@@ -67,67 +67,67 @@ variable "availability_zones" {
 variable "instance_type_api" {
   description = "Instance type for API servers"
   type        = string
-  default     = "t3.large"  # 2 vCPUs, 8 GB RAM
+  default     = "t3.micro"  # 2 vCPUs, 1 GB RAM - Free tier eligible
 }
 
 variable "instance_type_inference" {
   description = "Instance type for ML inference"
   type        = string
-  default     = "g4dn.xlarge"  # GPU instance for inference
+  default     = "t3.small"  # CPU-only inference for MVP
 }
 
 variable "instance_type_processing" {
   description = "Instance type for batch processing"
   type        = string
-  default     = "m5.2xlarge"  # 8 vCPUs, 32 GB RAM for heavy processing
+  default     = "t3.medium"  # 2 vCPUs, 4 GB RAM for processing
 }
 
 variable "enable_gpu" {
   description = "Enable GPU instances for ML inference"
   type        = bool
-  default     = true
+  default     = false  # Disabled for MVP to save costs
 }
 
 variable "api_min_instances" {
   description = "Minimum API instances"
   type        = number
-  default     = 2
+  default     = 1  # Single instance for MVP
 }
 
 variable "api_max_instances" {
   description = "Maximum API instances for auto-scaling"
   type        = number
-  default     = 10
+  default     = 2  # Limited scaling for MVP
 }
 
 variable "inference_min_instances" {
   description = "Minimum inference instances"
   type        = number
-  default     = 1
+  default     = 0  # On-demand only for MVP
 }
 
 variable "inference_max_instances" {
   description = "Maximum inference instances"
   type        = number
-  default     = 5
+  default     = 1  # Single instance max for MVP
 }
 
 variable "enable_cloudfront" {
   description = "Enable CloudFront CDN for better latency in Northeast Brazil"
   type        = bool
-  default     = true
+  default     = false  # Disabled for MVP - use ALB directly
 }
 
 variable "enable_elasticache" {
   description = "Enable ElastiCache for Redis caching"
   type        = bool
-  default     = true
+  default     = false  # Disabled for MVP - use in-memory caching
 }
 
 variable "enable_rds" {
   description = "Enable RDS PostgreSQL for metadata storage"
   type        = bool
-  default     = true
+  default     = false  # Disabled for MVP - use SQLite or S3
 }
 
 variable "domain_name" {
@@ -225,22 +225,22 @@ resource "aws_subnet" "private" {
 
 # Elastic IPs for NAT Gateways
 resource "aws_eip" "nat" {
-  count  = length(var.availability_zones)
+  count  = 1  # Single EIP for MVP
   domain = "vpc"
   
   tags = {
-    Name = "${local.app_name}-nat-eip-${count.index + 1}"
+    Name = "${local.app_name}-nat-eip-1"
   }
 }
 
-# NAT Gateways
+# NAT Gateways - Using single NAT Gateway for MVP to save costs
 resource "aws_nat_gateway" "main" {
-  count         = length(var.availability_zones)
-  allocation_id = aws_eip.nat[count.index].id
-  subnet_id     = aws_subnet.public[count.index].id
+  count         = 1  # Single NAT Gateway for MVP (saves ~$90/month)
+  allocation_id = aws_eip.nat[0].id
+  subnet_id     = aws_subnet.public[0].id
   
   tags = {
-    Name = "${local.app_name}-nat-${count.index + 1}"
+    Name = "${local.app_name}-nat-1"
   }
   
   depends_on = [aws_internet_gateway.main]
@@ -261,16 +261,16 @@ resource "aws_route_table" "public" {
 }
 
 resource "aws_route_table" "private" {
-  count  = length(var.availability_zones)
+  count  = 1  # Single route table for MVP
   vpc_id = aws_vpc.main.id
   
   route {
     cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.main[count.index].id
+    nat_gateway_id = aws_nat_gateway.main[0].id
   }
   
   tags = {
-    Name = "${local.app_name}-private-rt-${count.index + 1}"
+    Name = "${local.app_name}-private-rt-1"
   }
 }
 
@@ -284,7 +284,7 @@ resource "aws_route_table_association" "public" {
 resource "aws_route_table_association" "private" {
   count          = length(var.availability_zones)
   subnet_id      = aws_subnet.private[count.index].id
-  route_table_id = aws_route_table.private[count.index].id
+  route_table_id = aws_route_table.private[0].id  # Use single route table
 }
 
 # Security Groups
@@ -429,16 +429,15 @@ resource "aws_lb_listener" "http" {
   protocol          = "HTTP"
   
   default_action {
-    type = "redirect"
-    redirect {
-      port        = "443"
-      protocol    = "HTTPS"
-      status_code = "HTTP_301"
-    }
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.api.arn
   }
 }
 
+# HTTPS listener (only if domain is configured)
 resource "aws_lb_listener" "https" {
+  count = var.domain_name != "" ? 1 : 0
+  
   load_balancer_arn = aws_lb.main.arn
   port              = "443"
   protocol          = "HTTPS"
@@ -453,7 +452,8 @@ resource "aws_lb_listener" "https" {
 
 # Listener Rules for routing
 resource "aws_lb_listener_rule" "streamlit" {
-  listener_arn = aws_lb_listener.https.arn
+  count = var.domain_name != "" ? 1 : 0
+  listener_arn = aws_lb_listener.https[0].arn
   priority     = 100
   
   action {

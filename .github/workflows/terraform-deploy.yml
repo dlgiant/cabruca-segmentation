@@ -1,0 +1,163 @@
+name: Terraform Infrastructure Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Terraform action to perform'
+        required: true
+        default: 'plan'
+        type: choice
+        options:
+          - plan
+          - apply
+          - destroy
+      environment:
+        description: 'Environment to target'
+        required: true
+        default: 'mvp'
+        type: choice
+        options:
+          - mvp
+          - staging
+          - production
+      auto_approve:
+        description: 'Auto approve apply/destroy'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  AWS_REGION: sa-east-1
+  TERRAFORM_VERSION: '1.5.0'
+  TF_VAR_alert_email: ${{ secrets.ALERT_EMAIL }}
+
+permissions:
+  contents: read
+  pull-requests: write
+  id-token: write
+
+jobs:
+  terraform:
+    name: Terraform ${{ github.event.inputs.action }}
+    runs-on: ubuntu-latest
+    
+    environment:
+      name: ${{ github.event.inputs.environment }}
+      
+    defaults:
+      run:
+        working-directory: ./terraform
+        
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+          
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+          
+      - name: Terraform Format Check
+        run: terraform fmt -check
+        continue-on-error: true
+        
+      - name: Terraform Init
+        run: |
+          terraform init \
+            -backend-config="bucket=cabruca-terraform-state-${{ secrets.AWS_ACCOUNT_ID }}" \
+            -backend-config="key=${{ github.event.inputs.environment }}/terraform.tfstate" \
+            -backend-config="region=${{ env.AWS_REGION }}"
+            
+      - name: Terraform Validate
+        run: terraform validate
+        
+      - name: Terraform Plan
+        id: plan
+        run: |
+          terraform plan \
+            -var-file="${{ github.event.inputs.environment }}.tfvars" \
+            -var="alert_email=${{ secrets.ALERT_EMAIL }}" \
+            -out=tfplan \
+            -no-color
+        continue-on-error: true
+        
+      - name: Post Plan to PR
+        if: github.event_name == 'pull_request' && github.event.inputs.action == 'plan'
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const output = `#### Terraform Format and Style 🖌\`${{ steps.fmt.outcome }}\`
+            #### Terraform Initialization ⚙️\`${{ steps.init.outcome }}\`
+            #### Terraform Plan 📖\`${{ steps.plan.outcome }}\`
+            
+            <details><summary>Show Plan</summary>
+            
+            \`\`\`terraform
+            ${{ steps.plan.outputs.stdout }}
+            \`\`\`
+            
+            </details>
+            
+            *Pushed by: @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            })
+            
+      - name: Terraform Apply
+        if: github.event.inputs.action == 'apply'
+        run: |
+          if [ "${{ github.event.inputs.auto_approve }}" = "true" ]; then
+            terraform apply tfplan
+          else
+            terraform apply \
+              -var-file="${{ github.event.inputs.environment }}.tfvars" \
+              -var="alert_email=${{ secrets.ALERT_EMAIL }}"
+          fi
+          
+      - name: Terraform Destroy
+        if: github.event.inputs.action == 'destroy'
+        run: |
+          if [ "${{ github.event.inputs.auto_approve }}" = "true" ]; then
+            terraform destroy \
+              -var-file="${{ github.event.inputs.environment }}.tfvars" \
+              -var="alert_email=${{ secrets.ALERT_EMAIL }}" \
+              -auto-approve
+          else
+            terraform destroy \
+              -var-file="${{ github.event.inputs.environment }}.tfvars" \
+              -var="alert_email=${{ secrets.ALERT_EMAIL }}"
+          fi
+          
+      - name: Save Terraform Outputs
+        if: github.event.inputs.action == 'apply'
+        run: |
+          terraform output -json > ../terraform-outputs.json
+          
+      - name: Upload Terraform Outputs
+        if: github.event.inputs.action == 'apply'
+        uses: actions/upload-artifact@v3
+        with:
+          name: terraform-outputs-${{ github.event.inputs.environment }}
+          path: terraform-outputs.json
+          
+      - name: Comment Success
+        if: success()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const message = `✅ Terraform ${{ github.event.inputs.action }} completed successfully for ${{ github.event.inputs.environment }}!`;
+            console.log(message);

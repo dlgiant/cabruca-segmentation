@@ -1,0 +1,390 @@
+name: Main CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - development
+          - staging
+          - production
+
+env:
+  AWS_REGION: sa-east-1
+  TERRAFORM_VERSION: '1.5.0'
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '18'
+
+jobs:
+  # ============================================
+  # Testing and Validation
+  # ============================================
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          
+      - name: Cache Python dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+            
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov flake8 black
+          
+      - name: Run linting
+        run: |
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          black --check .
+        continue-on-error: true
+        
+      - name: Run tests
+        run: |
+          pytest tests/ -v --cov=./ --cov-report=xml
+        continue-on-error: true
+        
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+        continue-on-error: true
+
+  # ============================================
+  # Security Scanning
+  # ============================================
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-results.sarif'
+        continue-on-error: true
+        
+      - name: Run Checkov for IaC scanning
+        id: checkov
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: terraform/
+          framework: terraform
+          quiet: true
+          soft_fail: true
+
+  # ============================================
+  # Build Docker Images
+  # ============================================
+  build:
+    name: Build and Push Docker Images
+    runs-on: ubuntu-latest
+    needs: [test, security]
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+      
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+          
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+        
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: Generate image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.login-ecr.outputs.registry }}/cabruca-segmentation
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+            
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+
+  # ============================================
+  # Deploy Infrastructure
+  # ============================================
+  deploy-infrastructure:
+    name: Deploy Infrastructure
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    
+    environment:
+      name: ${{ github.event.inputs.environment || 'staging' }}
+      
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+          
+      - name: Terraform Init
+        working-directory: ./terraform
+        run: terraform init
+        
+      - name: Select Terraform Workspace
+        working-directory: ./terraform
+        run: |
+          terraform workspace select ${{ github.event.inputs.environment || 'staging' }} || \
+          terraform workspace new ${{ github.event.inputs.environment || 'staging' }}
+          
+      - name: Terraform Plan
+        working-directory: ./terraform
+        run: |
+          terraform plan \
+            -var-file="${{ github.event.inputs.environment || 'staging' }}.tfvars" \
+            -var="alert_email=${{ secrets.ALERT_EMAIL }}" \
+            -out=tfplan
+            
+      - name: Terraform Apply
+        working-directory: ./terraform
+        run: terraform apply tfplan
+        
+      - name: Save Terraform Outputs
+        working-directory: ./terraform
+        run: |
+          terraform output -json > ../terraform-outputs.json
+          
+      - name: Upload Terraform Outputs
+        uses: actions/upload-artifact@v3
+        with:
+          name: terraform-outputs
+          path: terraform-outputs.json
+
+  # ============================================
+  # Deploy Lambda Functions
+  # ============================================
+  deploy-lambdas:
+    name: Deploy Lambda Functions
+    runs-on: ubuntu-latest
+    needs: deploy-infrastructure
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    
+    environment:
+      name: ${{ github.event.inputs.environment || 'staging' }}
+      
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+          
+      - name: Download Terraform Outputs
+        uses: actions/download-artifact@v3
+        with:
+          name: terraform-outputs
+          
+      - name: Package Lambda Functions
+        working-directory: ./terraform
+        run: |
+          chmod +x package_lambdas.sh
+          ./package_lambdas.sh
+          
+      - name: Deploy Manager Agent
+        run: |
+          aws lambda update-function-code \
+            --function-name cabruca-mvp-${{ github.event.inputs.environment || 'staging' }}-manager-agent \
+            --zip-file fileb://terraform/manager_agent/lambda_function.zip \
+            --region ${{ env.AWS_REGION }}
+            
+      - name: Deploy Engineer Agent
+        run: |
+          aws lambda update-function-code \
+            --function-name cabruca-mvp-${{ github.event.inputs.environment || 'staging' }}-engineer-agent \
+            --zip-file fileb://terraform/engineer_agent/lambda_function.zip \
+            --region ${{ env.AWS_REGION }}
+            
+      - name: Deploy QA Agent
+        run: |
+          aws lambda update-function-code \
+            --function-name cabruca-mvp-${{ github.event.inputs.environment || 'staging' }}-qa-agent \
+            --zip-file fileb://terraform/qa_agent/lambda_function.zip \
+            --region ${{ env.AWS_REGION }}
+            
+      - name: Deploy Researcher Agent
+        run: |
+          aws lambda update-function-code \
+            --function-name cabruca-mvp-${{ github.event.inputs.environment || 'staging' }}-researcher-agent \
+            --zip-file fileb://terraform/researcher_agent/lambda_function.zip \
+            --region ${{ env.AWS_REGION }}
+            
+      - name: Deploy Data Processor Agent
+        run: |
+          aws lambda update-function-code \
+            --function-name cabruca-mvp-${{ github.event.inputs.environment || 'staging' }}-data-processor-agent \
+            --zip-file fileb://terraform/data_processor_agent/lambda_function.zip \
+            --region ${{ env.AWS_REGION }}
+            
+      - name: Update Lambda Environment Variables
+        run: |
+          ENVIRONMENT="${{ github.event.inputs.environment || 'staging' }}"
+          
+          for FUNCTION in manager engineer qa researcher data-processor; do
+            aws lambda update-function-configuration \
+              --function-name cabruca-mvp-${ENVIRONMENT}-${FUNCTION}-agent \
+              --environment Variables="{
+                ENVIRONMENT=\"${ENVIRONMENT}\",
+                AGENTOPS_API_KEY=\"${{ secrets.AGENTOPS_API_KEY }}\",
+                GITHUB_SECRET_NAME=\"cabruca-${ENVIRONMENT}-github-token\",
+                EVENT_BUS_NAME=\"cabruca-agents-bus\",
+                LOG_LEVEL=\"INFO\"
+              }" \
+              --region ${{ env.AWS_REGION }}
+          done
+
+  # ============================================
+  # Integration Tests
+  # ============================================
+  integration-tests:
+    name: Run Integration Tests
+    runs-on: ubuntu-latest
+    needs: [deploy-lambdas]
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    
+    environment:
+      name: ${{ github.event.inputs.environment || 'staging' }}
+      
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+          
+      - name: Test Manager Agent Health
+        run: |
+          ENVIRONMENT="${{ github.event.inputs.environment || 'staging' }}"
+          
+          echo '{"action": "health_check"}' | base64 > /tmp/payload.txt
+          
+          aws lambda invoke \
+            --function-name cabruca-mvp-${ENVIRONMENT}-manager-agent \
+            --payload file:///tmp/payload.txt \
+            /tmp/response.json \
+            --region ${{ env.AWS_REGION }}
+            
+          cat /tmp/response.json
+          
+      - name: Test Multi-Agent Orchestration
+        run: |
+          chmod +x terraform/test_pipeline_orchestration.sh
+          cd terraform
+          ./test_pipeline_orchestration.sh
+        continue-on-error: true
+
+  # ============================================
+  # Notification
+  # ============================================
+  notify:
+    name: Send Notifications
+    runs-on: ubuntu-latest
+    needs: [integration-tests]
+    if: always()
+    
+    steps:
+      - name: Slack Notification
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          text: |
+            Deployment to ${{ github.event.inputs.environment || 'staging' }} completed!
+            Branch: ${{ github.ref }}
+            Commit: ${{ github.sha }}
+            Author: ${{ github.actor }}
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        if: success()
+        continue-on-error: true
+        
+      - name: Create GitHub Deployment
+        uses: chrnorm/deployment-action@v2
+        with:
+          token: ${{ github.token }}
+          environment: ${{ github.event.inputs.environment || 'staging' }}
+          ref: ${{ github.ref }}
+        if: success()

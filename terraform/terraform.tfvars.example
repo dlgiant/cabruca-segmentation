@@ -119,3 +119,28 @@ tags = {
   Compliance  = "LGPD"
   Contact     = "tech@cabruca.agro.br"
 }
+
+# ========================================
+# COST CONTROL SETTINGS (NEW)
+# ========================================
+
+# Alert Configuration (REQUIRED for cost control)
+alert_email = "ops@cabruca.agro.br"  # Email for cost and system alerts
+alert_phone = "+5511999999999"       # Optional: Phone for critical SMS alerts
+
+# Cost Thresholds
+cost_alert_threshold = 400  # Alert when costs reach $400 (80% of $500 budget)
+cost_threshold      = 100   # QA cost compliance check threshold
+
+# AWS Organizations (if applicable)
+enable_org_policies = false  # Set to true if using AWS Organizations for tag policies
+
+# Agent API Keys (REQUIRED)
+anthropic_api_key = "sk-ant-api03-..."  # Your Anthropic API key for Claude
+github_repo       = "your-org/your-repo" # GitHub repository for Engineer Agent
+
+# EventBridge Configuration
+eventbridge_bus_name = "default"  # Use "default" or create custom event bus
+
+# API Endpoint (will be populated after deployment)
+api_endpoint = ""  # Leave empty, will be output after API Gateway creation
