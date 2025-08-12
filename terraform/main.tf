@@ -152,7 +152,12 @@ locals {
     CreatedAt   = timestamp()
   }
   
-  app_name = "${var.project_name}-${var.environment}"
+  # Shortened app name to avoid AWS naming length limits
+  app_name = var.environment == "production" ? "cabruca-prod" : (
+    var.environment == "staging" ? "cabruca-stg" : (
+      var.environment == "development" ? "cabruca-dev" : "cabruca-${substr(var.environment, 0, 3)}"
+    )
+  )
   
   # Ports
   api_port       = 8000

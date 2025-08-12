@@ -19,7 +19,7 @@ resource "aws_cloudwatch_event_bus" "cabruca_agents" {
 
 # Archive for failed events (cheaper than DLQ for low volume)
 resource "aws_cloudwatch_event_archive" "agent_events" {
-  name             = "${local.app_name}-agent-events-archive"
+  name             = "${local.app_name}-events-arch"  # Shortened to stay under 48 char limit
   event_source_arn = aws_cloudwatch_event_bus.cabruca_agents.arn
   retention_days   = 7 # Keep failed events for 7 days
 
