@@ -278,36 +278,76 @@ jobs:
           
       - name: Deploy Manager Agent
         run: |
+          ENV="${{ github.event.inputs.environment || 'staging' }}"
+          if [ "$ENV" = "production" ]; then
+            FUNCTION_PREFIX="cabruca-prod"
+          elif [ "$ENV" = "staging" ]; then
+            FUNCTION_PREFIX="cabruca-stg"
+          else
+            FUNCTION_PREFIX="cabruca-dev"
+          fi
           aws lambda update-function-code \
-            --function-name cabruca-mvp-${{ github.event.inputs.environment || 'staging' }}-manager-agent \
+            --function-name ${FUNCTION_PREFIX}-manager-agent \
             --zip-file fileb://terraform/manager_agent/lambda_function.zip \
             --region ${{ env.AWS_REGION }}
             
       - name: Deploy Engineer Agent
         run: |
+          ENV="${{ github.event.inputs.environment || 'staging' }}"
+          if [ "$ENV" = "production" ]; then
+            FUNCTION_PREFIX="cabruca-prod"
+          elif [ "$ENV" = "staging" ]; then
+            FUNCTION_PREFIX="cabruca-stg"
+          else
+            FUNCTION_PREFIX="cabruca-dev"
+          fi
           aws lambda update-function-code \
-            --function-name cabruca-mvp-${{ github.event.inputs.environment || 'staging' }}-engineer-agent \
+            --function-name ${FUNCTION_PREFIX}-engineer-agent \
             --zip-file fileb://terraform/engineer_agent/lambda_function.zip \
             --region ${{ env.AWS_REGION }}
             
       - name: Deploy QA Agent
         run: |
+          ENV="${{ github.event.inputs.environment || 'staging' }}"
+          if [ "$ENV" = "production" ]; then
+            FUNCTION_PREFIX="cabruca-prod"
+          elif [ "$ENV" = "staging" ]; then
+            FUNCTION_PREFIX="cabruca-stg"
+          else
+            FUNCTION_PREFIX="cabruca-dev"
+          fi
           aws lambda update-function-code \
-            --function-name cabruca-mvp-${{ github.event.inputs.environment || 'staging' }}-qa-agent \
+            --function-name ${FUNCTION_PREFIX}-qa-agent \
             --zip-file fileb://terraform/qa_agent/lambda_function.zip \
             --region ${{ env.AWS_REGION }}
             
       - name: Deploy Researcher Agent
         run: |
+          ENV="${{ github.event.inputs.environment || 'staging' }}"
+          if [ "$ENV" = "production" ]; then
+            FUNCTION_PREFIX="cabruca-prod"
+          elif [ "$ENV" = "staging" ]; then
+            FUNCTION_PREFIX="cabruca-stg"
+          else
+            FUNCTION_PREFIX="cabruca-dev"
+          fi
           aws lambda update-function-code \
-            --function-name cabruca-mvp-${{ github.event.inputs.environment || 'staging' }}-researcher-agent \
+            --function-name ${FUNCTION_PREFIX}-researcher-agent \
             --zip-file fileb://terraform/researcher_agent/lambda_function.zip \
             --region ${{ env.AWS_REGION }}
             
       - name: Deploy Data Processor Agent
         run: |
+          ENV="${{ github.event.inputs.environment || 'staging' }}"
+          if [ "$ENV" = "production" ]; then
+            FUNCTION_PREFIX="cabruca-prod"
+          elif [ "$ENV" = "staging" ]; then
+            FUNCTION_PREFIX="cabruca-stg"
+          else
+            FUNCTION_PREFIX="cabruca-dev"
+          fi
           aws lambda update-function-code \
-            --function-name cabruca-mvp-${{ github.event.inputs.environment || 'staging' }}-data-processor-agent \
+            --function-name ${FUNCTION_PREFIX}-data-processor-agent \
             --zip-file fileb://terraform/data_processor_agent/lambda_function.zip \
             --region ${{ env.AWS_REGION }}
             
@@ -315,9 +355,17 @@ jobs:
         run: |
           ENVIRONMENT="${{ github.event.inputs.environment || 'staging' }}"
           
+          if [ "$ENVIRONMENT" = "production" ]; then
+            FUNCTION_PREFIX="cabruca-prod"
+          elif [ "$ENVIRONMENT" = "staging" ]; then
+            FUNCTION_PREFIX="cabruca-stg"
+          else
+            FUNCTION_PREFIX="cabruca-dev"
+          fi
+          
           for FUNCTION in manager engineer qa researcher data-processor; do
             aws lambda update-function-configuration \
-              --function-name cabruca-mvp-${ENVIRONMENT}-${FUNCTION}-agent \
+              --function-name ${FUNCTION_PREFIX}-${FUNCTION}-agent \
               --environment Variables="{
                 ENVIRONMENT=\"${ENVIRONMENT}\",
                 AGENTOPS_API_KEY=\"${{ secrets.AGENTOPS_API_KEY }}\",
@@ -355,10 +403,18 @@ jobs:
         run: |
           ENVIRONMENT="${{ github.event.inputs.environment || 'staging' }}"
           
+          if [ "$ENVIRONMENT" = "production" ]; then
+            FUNCTION_PREFIX="cabruca-prod"
+          elif [ "$ENVIRONMENT" = "staging" ]; then
+            FUNCTION_PREFIX="cabruca-stg"
+          else
+            FUNCTION_PREFIX="cabruca-dev"
+          fi
+          
           echo '{"action": "health_check"}' | base64 > /tmp/payload.txt
           
           aws lambda invoke \
-            --function-name cabruca-mvp-${ENVIRONMENT}-manager-agent \
+            --function-name ${FUNCTION_PREFIX}-manager-agent \
             --payload file:///tmp/payload.txt \
             /tmp/response.json \
             --region ${{ env.AWS_REGION }}
