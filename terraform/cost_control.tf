@@ -591,9 +591,9 @@ resource "aws_cloudwatch_dashboard" "cost_control" {
 
         properties = {
           metrics = [
-            ["AWS/Lambda", "Invocations", { "FunctionName" = "${local.app_name}-manager-agent" }, { stat = "Sum", label = "Manager Agent" }],
-            ["AWS/Lambda", "Invocations", { "FunctionName" = "${local.app_name}-engineer-agent" }, { stat = "Sum", label = "Engineer Agent" }],
-            ["AWS/Lambda", "Invocations", { "FunctionName" = "${local.app_name}-qa-agent" }, { stat = "Sum", label = "QA Agent" }]
+            ["AWS/Lambda", "Invocations", "FunctionName", "${local.app_name}-manager-agent", { stat = "Sum", label = "Manager Agent" }],
+            ["AWS/Lambda", "Invocations", "FunctionName", "${local.app_name}-engineer-agent", { stat = "Sum", label = "Engineer Agent" }],
+            ["AWS/Lambda", "Invocations", "FunctionName", "${local.app_name}-qa-agent", { stat = "Sum", label = "QA Agent" }]
           ]
           view    = "timeSeries"
           stacked = false
@@ -611,9 +611,9 @@ resource "aws_cloudwatch_dashboard" "cost_control" {
 
         properties = {
           metrics = [
-            ["AWS/Lambda", "Duration", { "FunctionName" = "${local.app_name}-manager-agent" }, { stat = "Average", label = "Manager Agent" }],
-            ["AWS/Lambda", "Duration", { "FunctionName" = "${local.app_name}-engineer-agent" }, { stat = "Average", label = "Engineer Agent" }],
-            ["AWS/Lambda", "Duration", { "FunctionName" = "${local.app_name}-qa-agent" }, { stat = "Average", label = "QA Agent" }]
+            ["AWS/Lambda", "Duration", "FunctionName", "${local.app_name}-manager-agent", { stat = "Average", label = "Manager Agent" }],
+            ["AWS/Lambda", "Duration", "FunctionName", "${local.app_name}-engineer-agent", { stat = "Average", label = "Engineer Agent" }],
+            ["AWS/Lambda", "Duration", "FunctionName", "${local.app_name}-qa-agent", { stat = "Average", label = "QA Agent" }]
           ]
           view    = "timeSeries"
           stacked = false
