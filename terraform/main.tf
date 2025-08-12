@@ -456,7 +456,25 @@ resource "aws_lb_listener" "https" {
 }
 
 # Listener Rules for routing
-resource "aws_lb_listener_rule" "streamlit" {
+# HTTP listener rule for Streamlit
+resource "aws_lb_listener_rule" "streamlit_http" {
+  listener_arn = aws_lb_listener.http.arn
+  priority     = 100
+  
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.streamlit.arn
+  }
+  
+  condition {
+    path_pattern {
+      values = ["/streamlit*", "/dashboard*"]
+    }
+  }
+}
+
+# HTTPS listener rule for Streamlit (when domain is configured)
+resource "aws_lb_listener_rule" "streamlit_https" {
   count = var.domain_name != "" ? 1 : 0
   listener_arn = aws_lb_listener.https[0].arn
   priority     = 100

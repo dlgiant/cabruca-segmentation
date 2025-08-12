@@ -636,9 +636,9 @@ resource "aws_cloudwatch_dashboard" "cost_control" {
 
         properties = {
           metrics = [
-            ["AWS/Lambda", "ConcurrentExecutions", { stat = "Maximum", label = "Manager Agent" }, { "FunctionName" = "manager-agent-${var.environment}" }],
-            ["...", { stat = "Maximum", label = "Engineer Agent" }, { "FunctionName" = "engineer-agent-${var.environment}" }],
-            ["...", { stat = "Maximum", label = "QA Agent" }, { "FunctionName" = "${var.environment}-qa-agent" }]
+            ["AWS/Lambda", "ConcurrentExecutions", "FunctionName", "${local.app_name}-manager-agent", { stat = "Maximum", label = "Manager Agent" }],
+            ["AWS/Lambda", "ConcurrentExecutions", "FunctionName", "${local.app_name}-engineer-agent", { stat = "Maximum", label = "Engineer Agent" }],
+            ["AWS/Lambda", "ConcurrentExecutions", "FunctionName", "${local.app_name}-qa-agent", { stat = "Maximum", label = "QA Agent" }]
           ]
           view    = "timeSeries"
           stacked = false
@@ -716,9 +716,9 @@ resource "aws_cloudwatch_dashboard" "cost_control" {
 
         properties = {
           metrics = [
-            ["AWS/ApiGateway", "Count", { stat = "Sum", label = "API Requests" }, { "ApiName" = "${var.environment}-agent-control-api" }],
-            ["AWS/ApiGateway", "4XXError", { stat = "Sum", label = "4XX Errors" }, { "ApiName" = "${var.environment}-agent-control-api" }],
-            ["AWS/ApiGateway", "5XXError", { stat = "Sum", label = "5XX Errors" }, { "ApiName" = "${var.environment}-agent-control-api" }]
+            ["AWS/ApiGateway", "Count", "ApiName", "${var.environment}-agent-control-api", { stat = "Sum", label = "API Requests" }],
+            ["AWS/ApiGateway", "4XXError", "ApiName", "${var.environment}-agent-control-api", { stat = "Sum", label = "4XX Errors" }],
+            ["AWS/ApiGateway", "5XXError", "ApiName", "${var.environment}-agent-control-api", { stat = "Sum", label = "5XX Errors" }]
           ]
           view    = "timeSeries"
           stacked = false

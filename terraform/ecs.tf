@@ -444,6 +444,7 @@ resource "aws_ecs_service" "streamlit" {
   
   depends_on = [
     aws_lb_listener.http,
+    aws_lb_listener_rule.streamlit_http,
     aws_iam_role_policy.ecs_task_s3
   ]
   
