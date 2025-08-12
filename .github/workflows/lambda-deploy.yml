@@ -46,10 +46,10 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             if [ "${{ github.event.inputs.agents }}" = "all" ]; then
-              echo "agents=[\"manager\",\"engineer\",\"qa\",\"researcher\",\"data_processor\"]" >> $GITHUB_OUTPUT
+              echo 'agents=["manager","engineer","qa","researcher","data_processor"]' >> $GITHUB_OUTPUT
             else
               # Convert comma-separated list to JSON array
-              AGENTS=$(echo "${{ github.event.inputs.agents }}" | jq -R 'split(",") | map(gsub(" "; ""))')
+              AGENTS=$(echo "${{ github.event.inputs.agents }}" | jq -R -c 'split(",") | map(gsub(" "; ""))')
               echo "agents=$AGENTS" >> $GITHUB_OUTPUT
             fi
           else
@@ -58,7 +58,7 @@ jobs:
             
             for agent in manager engineer qa researcher data_processor; do
               if git diff --name-only HEAD^ HEAD | grep -q "terraform/${agent}_agent/"; then
-                CHANGED_AGENTS=$(echo $CHANGED_AGENTS | jq ". += [\"$agent\"]")
+                CHANGED_AGENTS=$(echo "$CHANGED_AGENTS" | jq -c ". += [\"$agent\"]")
               fi
             done
             

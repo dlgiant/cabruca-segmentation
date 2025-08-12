@@ -26,6 +26,12 @@ env:
   PYTHON_VERSION: '3.11'
   NODE_VERSION: '18'
 
+permissions:
+  contents: read
+  deployments: write
+  id-token: write
+  pull-requests: write
+
 jobs:
   # ============================================
   # Testing and Validation
@@ -388,3 +394,4 @@ jobs:
           environment: ${{ github.event.inputs.environment || 'staging' }}
           ref: ${{ github.ref }}
         if: success()
+        continue-on-error: true
