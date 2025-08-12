@@ -1,0 +1,132 @@
+# Git
+.git
+.gitignore
+.github/
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+*.egg
+.pytest_cache/
+.coverage
+.tox/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.ruff_cache/
+
+# Virtual environments
+env/
+venv/
+ml_env/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# ML/Data files (exclude large files)
+*.h5
+*.pkl
+*.pickle
+*.joblib
+*.npy
+*.npz
+*.ckpt
+*.pth
+*.pt
+*.onnx
+*.pb
+*.tflite
+wandb/
+mlruns/
+outputs/
+checkpoints/
+logs/
+tensorboard/
+
+# Data directories (exclude training data)
+data/raw/*
+data/processed/*
+data/train/*
+data/val/*
+data/test/*
+*.tif
+*.tiff
+*.jp2
+
+# Documentation
+*.md
+docs/
+documentation/
+
+# Testing
+tests/
+test_*.py
+*_test.py
+htmlcov/
+.hypothesis/
+
+# Docker
+docker/
+docker-compose*.yml
+Dockerfile.*
+
+# Terraform state files
+*.tfstate
+*.tfstate.*
+*.tfplan
+.terraform/
+terraform/.terraform/
+**/.terraform/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+tmp/
+temp/
+cache/
+
+# Build artifacts
+build/
+dist/
+*.so
+
+# Environment files (don't include secrets)
+.env
+.env.local
+.env.*
+secrets.yaml
+credentials.json
+*.pem
+*.key
+*.crt
+
+# Node modules (if any)
+node_modules/
+
+# Package files
+package-lock.json
+yarn.lock
+
+# AWS
+.aws/
+
+# Local test files
+test.txt
+test_*.sh
+*.old
