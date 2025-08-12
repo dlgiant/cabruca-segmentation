@@ -149,7 +149,7 @@ locals {
     Environment = var.environment
     Region      = "Brasil-Nordeste"
     ManagedBy   = "Terraform"
-    CreatedAt   = timestamp()
+    # Removed timestamp() to avoid Terraform plan/apply inconsistency
   }
   
   # Shortened app name to avoid AWS naming length limits
