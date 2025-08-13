@@ -7,10 +7,10 @@ data "aws_region" "current" {}
 
 # DynamoDB table for test results
 resource "aws_dynamodb_table" "qa_test_results" {
-  name           = "${var.environment}-qa-test-results"
-  billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "suite_id"
-  range_key      = "deployment_id"
+  name         = "${var.environment}-qa-test-results"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "suite_id"
+  range_key    = "deployment_id"
 
   attribute {
     name = "suite_id"
@@ -54,7 +54,7 @@ resource "aws_s3_bucket" "qa_artifacts" {
 
 resource "aws_s3_bucket_versioning" "qa_artifacts" {
   bucket = aws_s3_bucket.qa_artifacts.id
-  
+
   versioning_configuration {
     status = "Enabled"
   }
@@ -85,21 +85,21 @@ resource "random_string" "bucket_suffix" {
 
 # CodeBuild project for Cypress tests
 resource "aws_codebuild_project" "cypress_tests" {
-  name          = "${var.environment}-cypress-tests"
-  description   = "Run Cypress E2E tests for deployments"
-  service_role  = aws_iam_role.codebuild_cypress.arn
+  name         = "${var.environment}-cypress-tests"
+  description  = "Run Cypress E2E tests for deployments"
+  service_role = aws_iam_role.codebuild_cypress.arn
 
   artifacts {
-    type = "S3"
-    location = aws_s3_bucket.qa_artifacts.bucket
-    path = "test-results"
+    type      = "S3"
+    location  = aws_s3_bucket.qa_artifacts.bucket
+    path      = "test-results"
     packaging = "ZIP"
   }
 
   environment {
     compute_type                = "BUILD_GENERAL1_SMALL"
-    image                      = "aws/codebuild/standard:7.0"
-    type                       = "LINUX_CONTAINER"
+    image                       = "aws/codebuild/standard:7.0"
+    type                        = "LINUX_CONTAINER"
     image_pull_credentials_type = "CODEBUILD"
 
     environment_variable {
@@ -191,22 +191,22 @@ resource "aws_iam_role_policy" "codebuild_cypress" {
 resource "aws_lambda_function" "qa_agent" {
   filename         = data.archive_file.qa_agent_package.output_path
   function_name    = "${var.environment}-qa-agent"
-  role            = aws_iam_role.qa_agent_lambda.arn
-  handler         = "lambda_function.lambda_handler"
+  role             = aws_iam_role.qa_agent_lambda.arn
+  handler          = "lambda_function.lambda_handler"
   source_code_hash = data.archive_file.qa_agent_package.output_base64sha256
-  runtime         = "python3.11"
-  timeout         = 300  # 5 minutes
-  memory_size     = 512
+  runtime          = "python3.11"
+  timeout          = 300 # 5 minutes
+  memory_size      = 512
 
   environment {
     variables = {
       TEST_RESULTS_TABLE   = aws_dynamodb_table.qa_test_results.name
       CYPRESS_PROJECT_NAME = aws_codebuild_project.cypress_tests.name
-      API_ENDPOINT        = var.api_endpoint
-      S3_BUCKET           = aws_s3_bucket.qa_artifacts.bucket
-      EVENT_BUS_NAME      = var.eventbridge_bus_name != "" ? var.eventbridge_bus_name : "default"
-      COST_THRESHOLD      = var.cost_threshold
-      ENVIRONMENT         = var.environment
+      API_ENDPOINT         = var.api_endpoint
+      S3_BUCKET            = aws_s3_bucket.qa_artifacts.bucket
+      EVENT_BUS_NAME       = var.eventbridge_bus_name != "" ? var.eventbridge_bus_name : "default"
+      COST_THRESHOLD       = var.cost_threshold
+      ENVIRONMENT          = var.environment
     }
   }
 
@@ -331,7 +331,7 @@ resource "aws_cloudwatch_event_rule" "qa_agent_trigger" {
   description = "Trigger QA Agent on deployment completion"
 
   event_pattern = jsonencode({
-    source      = ["engineer.agent"]
+    source = ["engineer.agent"]
     detail-type = [
       "Implementation.code_change.Completed",
       "Implementation.infrastructure.Completed",
@@ -356,7 +356,7 @@ resource "aws_cloudwatch_event_target" "qa_agent" {
   rule      = aws_cloudwatch_event_rule.qa_agent_trigger.name
   target_id = "qa-agent-lambda"
   arn       = aws_lambda_function.qa_agent.arn
-  
+
   event_bus_name = var.eventbridge_bus_name != "" ? var.eventbridge_bus_name : "default"
 }
 

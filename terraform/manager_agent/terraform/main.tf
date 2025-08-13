@@ -1,6 +1,6 @@
 terraform {
   required_version = ">= 1.0"
-  
+
   required_providers {
     aws = {
       source  = "hashicorp/aws"
@@ -169,19 +169,19 @@ resource "aws_lambda_layer_version" "manager_agent_dependencies" {
 resource "aws_lambda_function" "manager_agent" {
   filename         = "../lambda_deployment.zip"
   function_name    = "manager-agent-${var.environment}"
-  role            = aws_iam_role.manager_agent_role.arn
-  handler         = "lambda_function.lambda_handler"
+  role             = aws_iam_role.manager_agent_role.arn
+  handler          = "lambda_function.lambda_handler"
   source_code_hash = filebase64sha256("../lambda_deployment.zip")
-  runtime         = "python3.11"
-  memory_size     = 512
-  timeout         = 300  # 5 minutes
+  runtime          = "python3.11"
+  memory_size      = 512
+  timeout          = 300 # 5 minutes
 
   environment {
     variables = {
       FEEDBACK_TABLE_NAME = var.feedback_table_name
-      EVENT_BUS_NAME     = var.event_bus_name
-      ANTHROPIC_API_KEY  = var.anthropic_api_key
-      ENVIRONMENT        = var.environment
+      EVENT_BUS_NAME      = var.event_bus_name
+      ANTHROPIC_API_KEY   = var.anthropic_api_key
+      ENVIRONMENT         = var.environment
     }
   }
 
@@ -245,12 +245,12 @@ resource "aws_cloudwatch_metric_alarm" "manager_agent_errors" {
   alarm_name          = "manager-agent-errors-${var.environment}"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = "2"
-  metric_name        = "Errors"
-  namespace          = "AWS/Lambda"
-  period             = "300"
-  statistic          = "Sum"
-  threshold          = "5"
-  alarm_description  = "This metric monitors Manager Agent Lambda errors"
+  metric_name         = "Errors"
+  namespace           = "AWS/Lambda"
+  period              = "300"
+  statistic           = "Sum"
+  threshold           = "5"
+  alarm_description   = "This metric monitors Manager Agent Lambda errors"
 
   dimensions = {
     FunctionName = aws_lambda_function.manager_agent.function_name
