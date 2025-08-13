@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 """Dashboard server for the Streamlit service"""
 
+import uvicorn
 from fastapi import FastAPI, Response
 from fastapi.responses import HTMLResponse
-import uvicorn
 
 app = FastAPI()
+
 
 @app.get("/health")
 def health():
     return {"status": "healthy", "service": "cabruca-dashboard"}
+
 
 @app.get("/dashboard")
 def dashboard():
@@ -102,11 +104,13 @@ def dashboard():
     """
     return HTMLResponse(content=html_content)
 
+
 @app.get("/streamlit")
 @app.get("/streamlit/{path:path}")
 def streamlit(path: str = ""):
     # Full Streamlit-like interface
-    return HTMLResponse(content="""
+    return HTMLResponse(
+        content="""
     <!DOCTYPE html>
     <html>
     <head>
@@ -390,12 +394,15 @@ def streamlit(path: str = ""):
         </script>
     </body>
     </html>
-    """)
+    """
+    )
+
 
 @app.get("/")
 def root():
     # Redirect root to dashboard
-    return HTMLResponse(content="""
+    return HTMLResponse(
+        content="""
         <html>
         <head>
             <meta http-equiv="refresh" content="0; url=/dashboard">
@@ -404,7 +411,9 @@ def root():
             <p>Redirecting to <a href="/dashboard">dashboard</a>...</p>
         </body>
         </html>
-    """)
+    """
+    )
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8501)
