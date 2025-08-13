@@ -390,16 +390,52 @@ jobs:
             local SERVICE_NAME=$1
             local TASK_FAMILY=$2
             local TARGET_GROUP_ARN=$3
+            local CONTAINER_NAME=$4
             
+            # Check if service exists
             if aws ecs describe-services --cluster $ECS_CLUSTER --services $SERVICE_NAME --region $AWS_REGION 2>/dev/null | grep -q "ACTIVE\|DRAINING"; then
-              echo "Updating service $SERVICE_NAME..."
-              aws ecs update-service \
+              echo "Service $SERVICE_NAME exists, checking if update is possible..."
+              
+              # Try to update the service
+              if aws ecs update-service \
                 --cluster $ECS_CLUSTER \
                 --service $SERVICE_NAME \
                 --task-definition $TASK_FAMILY \
                 --force-new-deployment \
                 --desired-count $DESIRED_COUNT \
-                --region $AWS_REGION
+                --region $AWS_REGION 2>/dev/null; then
+                echo "✅ Successfully updated service $SERVICE_NAME"
+              else
+                echo "Update failed, deleting and recreating service $SERVICE_NAME..."
+                # Delete the service
+                aws ecs update-service \
+                  --cluster $ECS_CLUSTER \
+                  --service $SERVICE_NAME \
+                  --desired-count 0 \
+                  --region $AWS_REGION
+                
+                aws ecs delete-service \
+                  --cluster $ECS_CLUSTER \
+                  --service $SERVICE_NAME \
+                  --force \
+                  --region $AWS_REGION
+                
+                # Wait a bit for deletion
+                sleep 10
+                
+                # Create new service
+                echo "Creating new service $SERVICE_NAME..."
+                aws ecs create-service \
+                  --cluster $ECS_CLUSTER \
+                  --service-name $SERVICE_NAME \
+                  --task-definition $TASK_FAMILY \
+                  --desired-count $DESIRED_COUNT \
+                  --launch-type FARGATE \
+                  --network-configuration "awsvpcConfiguration={subnets=[$SUBNET_IDS],securityGroups=[$SECURITY_GROUP_ID],assignPublicIp=ENABLED}" \
+                  --load-balancers targetGroupArn=$TARGET_GROUP_ARN,containerName=$CONTAINER_NAME,containerPort=8000 \
+                  --health-check-grace-period-seconds 60 \
+                  --region $AWS_REGION
+              fi
             else
               echo "Creating service $SERVICE_NAME..."
               aws ecs create-service \
@@ -409,17 +445,17 @@ jobs:
                 --desired-count $DESIRED_COUNT \
                 --launch-type FARGATE \
                 --network-configuration "awsvpcConfiguration={subnets=[$SUBNET_IDS],securityGroups=[$SECURITY_GROUP_ID],assignPublicIp=ENABLED}" \
-                --load-balancers targetGroupArn=$TARGET_GROUP_ARN,containerName=cabruca-$(echo $SERVICE_NAME | sed 's/cabruca-stg-//'),containerPort=8000 \
+                --load-balancers targetGroupArn=$TARGET_GROUP_ARN,containerName=$CONTAINER_NAME,containerPort=8000 \
                 --health-check-grace-period-seconds 60 \
                 --region $AWS_REGION
             fi
           }
           
           # Create/update API service
-          create_or_update_service "$ECS_SERVICE_API" "cabruca-stg-api-task" "$TG_ARN_API"
+          create_or_update_service "$ECS_SERVICE_API" "cabruca-stg-api-task" "$TG_ARN_API" "cabruca-api"
           
           # Create/update Streamlit service
-          create_or_update_service "$ECS_SERVICE_STREAMLIT" "cabruca-stg-streamlit-task" "$TG_ARN_STREAMLIT"
+          create_or_update_service "$ECS_SERVICE_STREAMLIT" "cabruca-stg-streamlit-task" "$TG_ARN_STREAMLIT" "cabruca-streamlit"
 
       - name: Wait for services to stabilize
         timeout-minutes: 10
