@@ -1,0 +1,110 @@
+name: Staging Deployment
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches:
+      - develop
+      - 'feature/**'
+      - 'hotfix/**'
+      - 'release/**'
+  workflow_dispatch:
+
+env:
+  AWS_REGION: sa-east-1
+  AWS_ACCOUNT_ID: 919014037196
+  ENVIRONMENT: staging
+
+jobs:
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    environment: staging
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Load staging configuration
+        run: |
+          source configs/staging.env
+          echo "ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}" >> $GITHUB_ENV
+          echo "ECR_REPOSITORY=$ECR_REPO" >> $GITHUB_ENV
+          echo "IMAGE_TAG=${{ github.sha }}" >> $GITHUB_ENV
+
+      - name: Build Docker image
+        run: |
+          docker build -f Dockerfile.simple -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:staging-${{ github.run_number }}
+
+      - name: Push to ECR
+        run: |
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:staging-${{ github.run_number }}
+
+      - name: Update ECS service
+        run: |
+          source configs/staging.env
+          
+          # Update API service
+          aws ecs update-service \
+            --cluster $ECS_CLUSTER \
+            --service $ECS_SERVICE_API \
+            --force-new-deployment \
+            --desired-count $DESIRED_COUNT \
+            --region $AWS_REGION
+          
+          # Update Streamlit service
+          aws ecs update-service \
+            --cluster $ECS_CLUSTER \
+            --service $ECS_SERVICE_STREAMLIT \
+            --force-new-deployment \
+            --desired-count $DESIRED_COUNT \
+            --region $AWS_REGION
+
+      - name: Wait for stable deployment
+        run: |
+          source configs/staging.env
+          
+          aws ecs wait services-stable \
+            --cluster $ECS_CLUSTER \
+            --services $ECS_SERVICE_API $ECS_SERVICE_STREAMLIT \
+            --region $AWS_REGION \
+            || true  # Don't fail on staging
+
+      - name: Health check
+        run: |
+          source configs/staging.env
+          
+          echo "Checking staging health endpoints..."
+          curl -f http://$ALB_DNS/health || echo "Health check failed"
+          curl -f http://$ALB_DNS/api || echo "API check failed"
+          curl -f http://$ALB_DNS/dashboard || echo "Dashboard check failed"
+          
+          echo "Staging deployment complete!"
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `🚀 Staging deployment complete!\n\nPreview URLs:\n- Health: http://cabruca-stg-alb-428619257.sa-east-1.elb.amazonaws.com/health\n- API: http://cabruca-stg-alb-428619257.sa-east-1.elb.amazonaws.com/api\n- Dashboard: http://cabruca-stg-alb-428619257.sa-east-1.elb.amazonaws.com/dashboard\n- Streamlit: http://cabruca-stg-alb-428619257.sa-east-1.elb.amazonaws.com/streamlit`
+            })

@@ -22,7 +22,8 @@ st.set_page_config(
 )
 
 # API Configuration
-API_URL = "http://localhost:8000"
+import os
+API_URL = os.getenv("API_URL", "http://cabruca-stg-alb-428619257.sa-east-1.elb.amazonaws.com")
 
 # Custom CSS
 st.markdown("""

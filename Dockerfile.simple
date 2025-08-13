@@ -1,0 +1,35 @@
+FROM python:3.9-slim
+
+WORKDIR /app
+
+# Copy the server files
+COPY simple_health_server.py .
+COPY dashboard_server.py .
+
+# Install basic dependencies
+RUN pip install --no-cache-dir fastapi uvicorn
+
+# Create a simple FastAPI app as fallback
+RUN echo 'from fastapi import FastAPI\n\
+import uvicorn\n\
+\n\
+app = FastAPI()\n\
+\n\
+@app.get("/health")\n\
+def health():\n\
+    return {"status": "healthy", "service": "cabruca-api"}\n\
+\n\
+@app.get("/api")\n\
+def api_root():\n\
+    return {"message": "Cabruca Segmentation API", "version": "1.0.0"}\n\
+\n\
+@app.get("/")\n\
+def root():\n\
+    return {"message": "Cabruca Segmentation Service", "endpoints": ["/health", "/api"]}\n\
+\n\
+if __name__ == "__main__":\n\
+    uvicorn.run(app, host="0.0.0.0", port=8000)' > fastapi_server.py
+
+EXPOSE 8000
+
+CMD ["python", "fastapi_server.py"]

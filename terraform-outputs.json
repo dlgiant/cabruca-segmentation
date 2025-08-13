@@ -1,0 +1,414 @@
+{
+  "agent_cloudwatch_dashboard": {
+    "sensitive": false,
+    "type": "string",
+    "value": "https://console.aws.amazon.com/cloudwatch/home?region=sa-east-1#dashboards:name=cabruca-stg-agents-dashboard"
+  },
+  "agent_dynamodb_tables": {
+    "sensitive": false,
+    "type": [
+      "object",
+      {
+        "memory": "string",
+        "state": "string",
+        "tasks": "string"
+      }
+    ],
+    "value": {
+      "memory": "cabruca-stg-agent-memory",
+      "state": "cabruca-stg-agent-state",
+      "tasks": "cabruca-stg-agent-tasks"
+    }
+  },
+  "agent_event_publisher_policy_arn": {
+    "sensitive": false,
+    "type": "string",
+    "value": "arn:aws:iam::919014037196:policy/cabruca-stg-agent-event-publisher"
+  },
+  "agent_lambda_functions": {
+    "sensitive": false,
+    "type": [
+      "object",
+      {
+        "data_processor": [
+          "object",
+          {
+            "arn": "string",
+            "invoke_url": "string",
+            "last_modified": "string",
+            "name": "string"
+          }
+        ],
+        "engineer": [
+          "object",
+          {
+            "arn": "string",
+            "invoke_url": "string",
+            "last_modified": "string",
+            "name": "string"
+          }
+        ],
+        "manager": [
+          "object",
+          {
+            "arn": "string",
+            "invoke_url": "string",
+            "last_modified": "string",
+            "name": "string"
+          }
+        ],
+        "qa": [
+          "object",
+          {
+            "arn": "string",
+            "invoke_url": "string",
+            "last_modified": "string",
+            "name": "string"
+          }
+        ],
+        "researcher": [
+          "object",
+          {
+            "arn": "string",
+            "invoke_url": "string",
+            "last_modified": "string",
+            "name": "string"
+          }
+        ]
+      }
+    ],
+    "value": {
+      "data_processor": {
+        "arn": "arn:aws:lambda:sa-east-1:919014037196:function:cabruca-stg-data-processor-agent",
+        "invoke_url": "https://oynf5epogwfed22zbkb6hmmh5q0wolhh.lambda-url.sa-east-1.on.aws/",
+        "last_modified": "2025-08-12T17:47:42.592+0000",
+        "name": "cabruca-stg-data-processor-agent"
+      },
+      "engineer": {
+        "arn": "arn:aws:lambda:sa-east-1:919014037196:function:cabruca-stg-engineer-agent",
+        "invoke_url": "https://odkq7sqw6ouus72g3ogj4hkoda0ywrct.lambda-url.sa-east-1.on.aws/",
+        "last_modified": "2025-08-12T17:47:41.875+0000",
+        "name": "cabruca-stg-engineer-agent"
+      },
+      "manager": {
+        "arn": "arn:aws:lambda:sa-east-1:919014037196:function:cabruca-stg-manager-agent",
+        "invoke_url": "https://pt2jkco5hpkwy5myu6rlvfhcpa0jpdtr.lambda-url.sa-east-1.on.aws/",
+        "last_modified": "2025-08-12T17:47:41.878+0000",
+        "name": "cabruca-stg-manager-agent"
+      },
+      "qa": {
+        "arn": "arn:aws:lambda:sa-east-1:919014037196:function:cabruca-stg-qa-agent",
+        "invoke_url": "https://c7ktxygg3rjc7imk6fok5lizna0ffdsw.lambda-url.sa-east-1.on.aws/",
+        "last_modified": "2025-08-12T17:47:42.596+0000",
+        "name": "cabruca-stg-qa-agent"
+      },
+      "researcher": {
+        "arn": "arn:aws:lambda:sa-east-1:919014037196:function:cabruca-stg-researcher-agent",
+        "invoke_url": "https://cix4l2qztwy4ps5fmdjkifhmce0owuse.lambda-url.sa-east-1.on.aws/",
+        "last_modified": "2025-08-12T17:47:41.865+0000",
+        "name": "cabruca-stg-researcher-agent"
+      }
+    }
+  },
+  "agent_s3_buckets": {
+    "sensitive": false,
+    "type": [
+      "object",
+      {
+        "artifacts": "string",
+        "prompts": "string",
+        "queue": "string"
+      }
+    ],
+    "value": {
+      "artifacts": "cabruca-stg-agent-artifacts-919014037196",
+      "prompts": "cabruca-stg-agent-prompts-919014037196",
+      "queue": "cabruca-stg-agent-queue-919014037196"
+    }
+  },
+  "agent_sns_topic": {
+    "sensitive": false,
+    "type": "string",
+    "value": "arn:aws:sns:sa-east-1:919014037196:cabruca-stg-agent-alerts"
+  },
+  "api_endpoint": {
+    "sensitive": false,
+    "type": "string",
+    "value": "https://cabruca-stg-alb-428619257.sa-east-1.elb.amazonaws.com/api"
+  },
+  "api_gateway_url": {
+    "sensitive": false,
+    "type": "string",
+    "value": "https://5eqbr3o3b8.execute-api.sa-east-1.amazonaws.com/staging"
+  },
+  "circuit_breaker_function": {
+    "sensitive": false,
+    "type": "string",
+    "value": "staging-cost-circuit-breaker"
+  },
+  "cloudfront_url": {
+    "sensitive": false,
+    "type": "string",
+    "value": "N/A"
+  },
+  "cost_alert_topic_arn": {
+    "sensitive": false,
+    "type": "string",
+    "value": "arn:aws:sns:sa-east-1:919014037196:agentops-cost-alerts"
+  },
+  "cost_dashboard_url": {
+    "sensitive": false,
+    "type": "string",
+    "value": "https://console.aws.amazon.com/cloudwatch/home?region=sa-east-1#dashboards:name=staging-cost-control-dashboard"
+  },
+  "cost_savings": {
+    "sensitive": false,
+    "type": [
+      "object",
+      {
+        "cloudfront": "string",
+        "elasticache": "string",
+        "gpu_instances": "string",
+        "multi_nat": "string",
+        "rds_database": "string",
+        "total_savings": "string"
+      }
+    ],
+    "value": {
+      "cloudfront": "$50/month saved (No CDN)",
+      "elasticache": "$50/month saved (No Redis)",
+      "gpu_instances": "$400/month saved (No GPU)",
+      "multi_nat": "$90/month saved (Single NAT)",
+      "rds_database": "$100/month saved (No RDS)",
+      "total_savings": "~$690/month"
+    }
+  },
+  "critical_alerts_topic_arn": {
+    "sensitive": false,
+    "type": "string",
+    "value": "arn:aws:sns:sa-east-1:919014037196:cabruca-stg-critical-alerts"
+  },
+  "critical_dlq_url": {
+    "sensitive": false,
+    "type": "string",
+    "value": "https://sqs.sa-east-1.amazonaws.com/919014037196/cabruca-stg-critical-events-dlq"
+  },
+  "cypress_project_name": {
+    "sensitive": false,
+    "type": "string",
+    "value": "staging-cypress-tests"
+  },
+  "dashboard_url": {
+    "sensitive": false,
+    "type": "string",
+    "value": "https://console.aws.amazon.com/cloudwatch/home?region=sa-east-1#dashboards:name=AgentOps-Monitoring"
+  },
+  "database_endpoint": {
+    "sensitive": false,
+    "type": "string",
+    "value": "N/A"
+  },
+  "decisions_table_name": {
+    "sensitive": false,
+    "type": "string",
+    "value": "agent-decisions"
+  },
+  "deployment_info": {
+    "sensitive": false,
+    "type": [
+      "object",
+      {
+        "api_url": "string",
+        "dashboard": "string",
+        "environment": "string",
+        "health_check": "string",
+        "region": "string"
+      }
+    ],
+    "value": {
+      "api_url": "http://cabruca-stg-alb-428619257.sa-east-1.elb.amazonaws.com/api",
+      "dashboard": "http://cabruca-stg-alb-428619257.sa-east-1.elb.amazonaws.com/dashboard",
+      "environment": "staging",
+      "health_check": "http://cabruca-stg-alb-428619257.sa-east-1.elb.amazonaws.com/health",
+      "region": "sa-east-1"
+    }
+  },
+  "dlq_url": {
+    "sensitive": false,
+    "type": "string",
+    "value": "https://sqs.sa-east-1.amazonaws.com/919014037196/cabruca-stg-eventbridge-dlq"
+  },
+  "estimated_monthly_cost": {
+    "sensitive": false,
+    "type": [
+      "object",
+      {
+        "alb": "string",
+        "cloudwatch": "string",
+        "fargate": "string",
+        "nat_gateway": "string",
+        "note": "string",
+        "s3": "string",
+        "total": "string"
+      }
+    ],
+    "value": {
+      "alb": "$25 (Application Load Balancer)",
+      "cloudwatch": "$5 (Logs and metrics)",
+      "fargate": "$10-15 (256 CPU, 512 MB per container)",
+      "nat_gateway": "$45 (Single NAT Gateway)",
+      "note": "Actual costs may vary based on usage",
+      "s3": "$5 (Storage and requests)",
+      "total": "~$90-100/month"
+    }
+  },
+  "event_bus_arn": {
+    "sensitive": false,
+    "type": "string",
+    "value": "arn:aws:events:sa-east-1:919014037196:event-bus/cabruca-agents-bus"
+  },
+  "event_bus_name": {
+    "sensitive": false,
+    "type": "string",
+    "value": "cabruca-agents-bus"
+  },
+  "load_balancer_url": {
+    "sensitive": false,
+    "type": "string",
+    "value": "https://cabruca-stg-alb-428619257.sa-east-1.elb.amazonaws.com"
+  },
+  "monitoring_table_name": {
+    "sensitive": false,
+    "type": "string",
+    "value": "agent-monitoring"
+  },
+  "monthly_budget_id": {
+    "sensitive": false,
+    "type": "string",
+    "value": "919014037196:staging-monthly-budget"
+  },
+  "qa_agent_function_arn": {
+    "sensitive": false,
+    "type": "string",
+    "value": "arn:aws:lambda:sa-east-1:919014037196:function:staging-qa-agent"
+  },
+  "qa_agent_function_name": {
+    "sensitive": false,
+    "type": "string",
+    "value": "staging-qa-agent"
+  },
+  "qa_artifacts_bucket": {
+    "sensitive": false,
+    "type": "string",
+    "value": "staging-qa-agent-artifacts-htnnekye"
+  },
+  "qa_test_results_table": {
+    "sensitive": false,
+    "type": "string",
+    "value": "staging-qa-test-results"
+  },
+  "quick_start": {
+    "sensitive": false,
+    "type": [
+      "object",
+      {
+        "deploy": "string",
+        "ssh_debug": "string",
+        "test_api": "string",
+        "view_logs": "string"
+      }
+    ],
+    "value": {
+      "deploy": "terraform apply -var-file=mvp.tfvars",
+      "ssh_debug": "aws ecs execute-command --cluster cabruca-mvp-cluster --task \u003ctask-id\u003e --container api --interactive --command /bin/sh",
+      "test_api": "curl cabruca-stg-alb-428619257.sa-east-1.elb.amazonaws.com/health",
+      "view_logs": "aws logs tail /ecs/cabruca-mvp/api --follow"
+    }
+  },
+  "redis_endpoint": {
+    "sensitive": false,
+    "type": "string",
+    "value": "N/A"
+  },
+  "s3_data_bucket": {
+    "sensitive": false,
+    "type": "string",
+    "value": "cabruca-stg-data-brasil"
+  },
+  "s3_models_bucket": {
+    "sensitive": false,
+    "type": "string",
+    "value": "cabruca-stg-models-brasil"
+  },
+  "scaling_commands": {
+    "sensitive": false,
+    "type": [
+      "object",
+      {
+        "scale_down": "string",
+        "scale_up": "string",
+        "stop_all": "string"
+      }
+    ],
+    "value": {
+      "scale_down": "aws ecs update-service --cluster cabruca-mvp-cluster --service cabruca-mvp-api --desired-count 1",
+      "scale_up": "aws ecs update-service --cluster cabruca-mvp-cluster --service cabruca-mvp-api --desired-count 2",
+      "stop_all": "aws ecs update-service --cluster cabruca-mvp-cluster --service cabruca-mvp-api --desired-count 0"
+    }
+  },
+  "schema_registry_name": {
+    "sensitive": false,
+    "type": "string",
+    "value": "cabruca-stg-agent-schemas"
+  },
+  "streamlit_endpoint": {
+    "sensitive": false,
+    "type": "string",
+    "value": "https://cabruca-stg-alb-428619257.sa-east-1.elb.amazonaws.com/dashboard"
+  },
+  "total_estimated_monthly_cost": {
+    "sensitive": false,
+    "type": [
+      "object",
+      {
+        "cloudwatch_logs": "string",
+        "dynamodb": "string",
+        "lambda_invocations": "string",
+        "s3_storage": "string",
+        "total_estimate": "string"
+      }
+    ],
+    "value": {
+      "cloudwatch_logs": "~$2-5",
+      "dynamodb": "~$5-15 (on-demand pricing)",
+      "lambda_invocations": "~$2-10 (based on usage)",
+      "s3_storage": "~$1-5 (depends on data volume)",
+      "total_estimate": "~$10-35/month"
+    }
+  },
+  "upgrade_path": {
+    "sensitive": false,
+    "type": [
+      "object",
+      {
+        "step1": "string",
+        "step2": "string",
+        "step3": "string",
+        "step4": "string",
+        "step5": "string"
+      }
+    ],
+    "value": {
+      "step1": "Enable RDS: terraform apply -var='enable_rds=true'",
+      "step2": "Enable Redis: terraform apply -var='enable_elasticache=true'",
+      "step3": "Enable CDN: terraform apply -var='enable_cloudfront=true'",
+      "step4": "Add GPU: terraform apply -var='enable_gpu=true'",
+      "step5": "Scale up: terraform apply -var='api_min_instances=2'"
+    }
+  },
+  "vpc_id": {
+    "sensitive": false,
+    "type": "string",
+    "value": "vpc-034904cf37fbaaa33"
+  }
+}
