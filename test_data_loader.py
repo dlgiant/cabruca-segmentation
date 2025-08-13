@@ -17,8 +17,11 @@ def test_simple_loader():
     print("TESTING SIMPLE LOADER")
     print("=" * 60)
 
-    from src.data_processing import (CoordinateTransformer, ImageryMetadata,
-                                     SimpleGeoJSONLoader)
+    from src.data_processing import (
+        CoordinateTransformer,
+        ImageryMetadata,
+        SimpleGeoJSONLoader,
+    )
 
     # Test loading GeoJSON files
     geojson_files = [
@@ -99,10 +102,13 @@ def test_full_loader():
     print("=" * 60)
 
     try:
-        from src.data_processing import (FULL_LOADER_AVAILABLE,
-                                         CoordinateConverter, GeoJSONLoader,
-                                         GeospatialDataPipeline,
-                                         MultiBandProcessor)
+        from src.data_processing import (
+            FULL_LOADER_AVAILABLE,
+            CoordinateConverter,
+            GeoJSONLoader,
+            GeospatialDataPipeline,
+            MultiBandProcessor,
+        )
 
         if not FULL_LOADER_AVAILABLE:
             print("✗ Full loader not available - missing dependencies")
@@ -215,8 +221,7 @@ def test_planet_integration():
     try:
         from datetime import datetime, timedelta
 
-        from src.data_processing import (GeospatialDataPipeline,
-                                         SatelliteImageryLoader)
+        from src.data_processing import GeospatialDataPipeline, SatelliteImageryLoader
 
         print("✓ Planet API key found")
 

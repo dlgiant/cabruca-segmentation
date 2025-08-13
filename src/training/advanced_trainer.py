@@ -22,10 +22,13 @@ import torch.nn as nn
 import torch.optim as optim
 import yaml
 from torch.cuda.amp import GradScaler, autocast
-from torch.optim.lr_scheduler import (CosineAnnealingLR,
-                                      CosineAnnealingWarmRestarts,
-                                      ExponentialLR, OneCycleLR,
-                                      ReduceLROnPlateau)
+from torch.optim.lr_scheduler import (
+    CosineAnnealingLR,
+    CosineAnnealingWarmRestarts,
+    ExponentialLR,
+    OneCycleLR,
+    ReduceLROnPlateau,
+)
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
@@ -56,9 +59,11 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from data_processing.cabruca_dataset import create_data_loaders
 from evaluation.agroforestry_metrics import AgroforestryMetrics
-from models.cabruca_segmentation_model import (CabrucaLoss,
-                                               CabrucaSegmentationModel,
-                                               create_cabruca_model)
+from models.cabruca_segmentation_model import (
+    CabrucaLoss,
+    CabrucaSegmentationModel,
+    create_cabruca_model,
+)
 
 
 class ExperimentTracker:

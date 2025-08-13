@@ -13,8 +13,11 @@ import agentops
 # Add src to path
 sys.path.append("src")
 
-from inference.batch_inference import (BatchInferenceEngine, ReportGenerator,
-                                       VisualizationTools)
+from inference.batch_inference import (
+    BatchInferenceEngine,
+    ReportGenerator,
+    VisualizationTools,
+)
 
 
 def main():

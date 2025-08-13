@@ -12,24 +12,53 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 import numpy as np
-from qgis.core import (QgsCoordinateReferenceSystem, QgsFeature, QgsField,
-                       QgsFields, QgsGeometry, QgsPointXY, QgsProcessing,
-                       QgsProcessingAlgorithm, QgsProcessingContext,
-                       QgsProcessingException, QgsProcessingFeedback,
-                       QgsProcessingParameterBoolean,
-                       QgsProcessingParameterFile,
-                       QgsProcessingParameterNumber,
-                       QgsProcessingParameterRasterLayer,
-                       QgsProcessingParameterVectorDestination, QgsProject,
-                       QgsRasterBandStats, QgsRasterLayer, QgsVectorFileWriter,
-                       QgsVectorLayer, QgsWkbTypes)
+from qgis.core import (
+    QgsCoordinateReferenceSystem,
+    QgsFeature,
+    QgsField,
+    QgsFields,
+    QgsGeometry,
+    QgsPointXY,
+    QgsProcessing,
+    QgsProcessingAlgorithm,
+    QgsProcessingContext,
+    QgsProcessingException,
+    QgsProcessingFeedback,
+    QgsProcessingParameterBoolean,
+    QgsProcessingParameterFile,
+    QgsProcessingParameterNumber,
+    QgsProcessingParameterRasterLayer,
+    QgsProcessingParameterVectorDestination,
+    QgsProject,
+    QgsRasterBandStats,
+    QgsRasterFileWriter,
+    QgsRasterLayer,
+    QgsRasterPipe,
+    QgsVectorFileWriter,
+    QgsVectorLayer,
+    QgsWkbTypes,
+)
+
 # QGIS imports
 from qgis.PyQt.QtCore import QCoreApplication, Qt, QVariant
 from qgis.PyQt.QtGui import QIcon
-from qgis.PyQt.QtWidgets import (QAction, QCheckBox, QComboBox, QDialog,
-                                 QFileDialog, QGroupBox, QHBoxLayout, QLabel,
-                                 QLineEdit, QMessageBox, QProgressBar,
-                                 QPushButton, QSpinBox, QTextEdit, QVBoxLayout)
+from qgis.PyQt.QtWidgets import (
+    QAction,
+    QCheckBox,
+    QComboBox,
+    QDialog,
+    QFileDialog,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QProgressBar,
+    QPushButton,
+    QSpinBox,
+    QTextEdit,
+    QVBoxLayout,
+)
 from qgis.utils import iface
 
 # Add model path to system path
@@ -323,8 +352,12 @@ class CabrucaSegmentationDialog(QDialog):
     def style_tree_layer(self, layer):
         """Apply styling to tree layer."""
         # Create categorized renderer based on tree class
-        from qgis.core import (QgsCategorizedSymbolRenderer, QgsFillSymbol,
-                               QgsRendererCategory, QgsSymbol)
+        from qgis.core import (
+            QgsCategorizedSymbolRenderer,
+            QgsFillSymbol,
+            QgsRendererCategory,
+            QgsSymbol,
+        )
 
         # Define categories
         categories = []

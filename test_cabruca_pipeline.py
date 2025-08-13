@@ -16,9 +16,11 @@ sys.path.append("src")
 
 from data_processing.cabruca_dataset import CabrucaDataset
 from inference.cabruca_inference import CabrucaInference
-from models.cabruca_segmentation_model import (CabrucaLoss,
-                                               CabrucaSegmentationModel,
-                                               create_cabruca_model)
+from models.cabruca_segmentation_model import (
+    CabrucaLoss,
+    CabrucaSegmentationModel,
+    create_cabruca_model,
+)
 from training.train_cabruca import CabrucaTrainer
 
 

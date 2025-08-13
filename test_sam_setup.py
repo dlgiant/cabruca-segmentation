@@ -49,8 +49,11 @@ def test_sam_import():
     print("=" * 60)
 
     try:
-        from src.models.sam_model import (SAMConfig, SAMTreeSegmenter,
-                                          TreePromptEngineering)
+        from src.models.sam_model import (
+            SAMConfig,
+            SAMTreeSegmenter,
+            TreePromptEngineering,
+        )
 
         print("✅ SAM module imported successfully!")
 

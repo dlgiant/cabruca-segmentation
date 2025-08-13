@@ -13,8 +13,10 @@ import torch
 # Add src to path
 sys.path.append("src")
 
-from evaluation.agroforestry_metrics import (AgroforestryMetrics,
-                                             visualize_evaluation_results)
+from evaluation.agroforestry_metrics import (
+    AgroforestryMetrics,
+    visualize_evaluation_results,
+)
 
 
 def create_sample_predictions():

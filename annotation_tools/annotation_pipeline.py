@@ -16,7 +16,9 @@ sys.path.append(str(Path(__file__).parent.parent))
 from annotation_tools.coco_conversion.annotation_converter import COCOConverter
 from annotation_tools.data_splitting.dataset_splitter import DatasetSplitter
 from annotation_tools.sam_annotation.sam_auto_annotator import (
-    AnnotationConfig, SAMAutoAnnotator)
+    AnnotationConfig,
+    SAMAutoAnnotator,
+)
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"

@@ -21,9 +21,11 @@ from tqdm import tqdm
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from data_processing.cabruca_dataset import create_data_loaders
-from models.cabruca_segmentation_model import (CabrucaLoss,
-                                               CabrucaSegmentationModel,
-                                               create_cabruca_model)
+from models.cabruca_segmentation_model import (
+    CabrucaLoss,
+    CabrucaSegmentationModel,
+    create_cabruca_model,
+)
 
 
 class CabrucaTrainer:

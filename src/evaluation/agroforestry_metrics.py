@@ -17,8 +17,11 @@ import torch
 from scipy.spatial import Voronoi, distance_matrix, voronoi_plot_2d
 from scipy.stats import chi2
 from shapely.geometry import Point, Polygon
-from sklearn.metrics import (average_precision_score, confusion_matrix,
-                             precision_recall_curve)
+from sklearn.metrics import (
+    average_precision_score,
+    confusion_matrix,
+    precision_recall_curve,
+)
 
 warnings.filterwarnings("ignore")
 

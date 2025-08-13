@@ -6,6 +6,7 @@ Streamlit-based dashboard for analysis and visualization.
 import base64
 import json
 import os
+
 # Import inference components
 import sys
 import tempfile
@@ -24,8 +25,12 @@ from plotly.subplots import make_subplots
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from inference.batch_inference import (BatchInferenceEngine, InferenceResult,
-                                       ReportGenerator, VisualizationTools)
+from inference.batch_inference import (
+    BatchInferenceEngine,
+    InferenceResult,
+    ReportGenerator,
+    VisualizationTools,
+)
 
 
 class InteractiveViewer:

@@ -23,8 +23,11 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from evaluation.agroforestry_metrics import AgroforestryMetrics
-from inference.batch_inference import (BatchInferenceEngine, InferenceResult,
-                                       TreeInstance)
+from inference.batch_inference import (
+    BatchInferenceEngine,
+    InferenceResult,
+    TreeInstance,
+)
 
 
 @dataclass

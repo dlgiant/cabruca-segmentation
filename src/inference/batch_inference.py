@@ -157,8 +157,7 @@ class BatchInferenceEngine:
         if config:
             model = create_cabruca_model(config.get("model", {}))
         else:
-            from models.cabruca_segmentation_model import \
-                CabrucaSegmentationModel
+            from models.cabruca_segmentation_model import CabrucaSegmentationModel
 
             model = CabrucaSegmentationModel()
 

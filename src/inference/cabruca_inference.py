@@ -27,8 +27,10 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from data_processing.cabruca_dataset import CabrucaDataset
-from models.cabruca_segmentation_model import (CabrucaSegmentationModel,
-                                               create_cabruca_model)
+from models.cabruca_segmentation_model import (
+    CabrucaSegmentationModel,
+    create_cabruca_model,
+)
 
 
 class CabrucaInference:
