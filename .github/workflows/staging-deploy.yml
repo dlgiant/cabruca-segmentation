@@ -1,0 +1,515 @@
+name: Staging Deployment
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches:
+      - develop
+      - 'feature/**'
+      - 'hotfix/**'
+      - 'release/**'
+  workflow_dispatch:
+
+env:
+  AWS_REGION: sa-east-1
+  AWS_ACCOUNT_ID: 919014037196
+  ENVIRONMENT: staging
+
+jobs:
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    environment: staging
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Load staging configuration
+        run: |
+          source configs/staging.env
+          # Export all variables for use in other steps
+          echo "ECS_CLUSTER=$ECS_CLUSTER" >> $GITHUB_ENV
+          echo "ECS_SERVICE_API=$ECS_SERVICE_API" >> $GITHUB_ENV
+          echo "ECS_SERVICE_STREAMLIT=$ECS_SERVICE_STREAMLIT" >> $GITHUB_ENV
+          echo "ECR_REPO=$ECR_REPO" >> $GITHUB_ENV
+          echo "ALB_NAME=$ALB_NAME" >> $GITHUB_ENV
+          echo "TASK_CPU=$TASK_CPU" >> $GITHUB_ENV
+          echo "TASK_MEMORY=$TASK_MEMORY" >> $GITHUB_ENV
+          echo "DESIRED_COUNT=$DESIRED_COUNT" >> $GITHUB_ENV
+
+      - name: Create ECR repository if not exists
+        run: |
+          if ! aws ecr describe-repositories --repository-names $ECR_REPO --region $AWS_REGION 2>/dev/null; then
+            echo "Creating ECR repository $ECR_REPO..."
+            aws ecr create-repository \
+              --repository-name $ECR_REPO \
+              --region $AWS_REGION \
+              --image-scanning-configuration scanOnPush=true \
+              --encryption-configuration encryptionType=AES256
+            
+            # Set repository policy for cleanup
+            aws ecr put-lifecycle-policy \
+              --repository-name $ECR_REPO \
+              --lifecycle-policy-text '{
+                "rules": [{
+                  "rulePriority": 1,
+                  "description": "Keep last 10 images",
+                  "selection": {
+                    "tagStatus": "any",
+                    "countType": "imageCountMoreThan",
+                    "countNumber": 10
+                  },
+                  "action": {"type": "expire"}
+                }]
+              }' \
+              --region $AWS_REGION
+          else
+            echo "✅ ECR repository $ECR_REPO already exists"
+          fi
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push Docker image
+        run: |
+          ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG=${{ github.sha }}
+          
+          # Build image
+          docker build -f Dockerfile.simple -t $ECR_REGISTRY/$ECR_REPO:$IMAGE_TAG .
+          docker tag $ECR_REGISTRY/$ECR_REPO:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPO:latest
+          docker tag $ECR_REGISTRY/$ECR_REPO:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPO:staging-${{ github.run_number }}
+          
+          # Push all tags
+          docker push $ECR_REGISTRY/$ECR_REPO:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPO:latest
+          docker push $ECR_REGISTRY/$ECR_REPO:staging-${{ github.run_number }}
+          
+          echo "IMAGE_URI=$ECR_REGISTRY/$ECR_REPO:$IMAGE_TAG" >> $GITHUB_ENV
+
+      - name: Create VPC and networking if not exists
+        id: create-vpc
+        run: |
+          # Check if default VPC exists
+          VPC_ID=$(aws ec2 describe-vpcs --filters "Name=isDefault,Values=true" --query "Vpcs[0].VpcId" --output text --region $AWS_REGION)
+          
+          if [ "$VPC_ID" == "None" ] || [ -z "$VPC_ID" ]; then
+            echo "Creating VPC for staging..."
+            # This would normally be done via Terraform, but for simplicity using default VPC
+            aws ec2 create-default-vpc --region $AWS_REGION || true
+            VPC_ID=$(aws ec2 describe-vpcs --filters "Name=isDefault,Values=true" --query "Vpcs[0].VpcId" --output text --region $AWS_REGION)
+          fi
+          
+          echo "VPC_ID=$VPC_ID" >> $GITHUB_ENV
+          
+          # Get subnet IDs
+          SUBNET_IDS=$(aws ec2 describe-subnets --filters "Name=vpc-id,Values=$VPC_ID" --query "Subnets[*].SubnetId" --output text --region $AWS_REGION | tr '\t' ',')
+          echo "SUBNET_IDS=$SUBNET_IDS" >> $GITHUB_ENV
+          
+          # Create or get security group
+          SG_NAME="cabruca-staging-sg"
+          SG_ID=$(aws ec2 describe-security-groups --filters "Name=group-name,Values=$SG_NAME" "Name=vpc-id,Values=$VPC_ID" --query "SecurityGroups[0].GroupId" --output text --region $AWS_REGION 2>/dev/null || echo "")
+          
+          if [ -z "$SG_ID" ] || [ "$SG_ID" == "None" ]; then
+            echo "Creating security group..."
+            SG_ID=$(aws ec2 create-security-group \
+              --group-name $SG_NAME \
+              --description "Security group for Cabruca staging" \
+              --vpc-id $VPC_ID \
+              --region $AWS_REGION \
+              --output text)
+            
+            # Allow HTTP and HTTPS
+            aws ec2 authorize-security-group-ingress \
+              --group-id $SG_ID \
+              --protocol tcp \
+              --port 80 \
+              --cidr 0.0.0.0/0 \
+              --region $AWS_REGION
+            
+            aws ec2 authorize-security-group-ingress \
+              --group-id $SG_ID \
+              --protocol tcp \
+              --port 8000 \
+              --cidr 0.0.0.0/0 \
+              --region $AWS_REGION
+          fi
+          
+          echo "SECURITY_GROUP_ID=$SG_ID" >> $GITHUB_ENV
+
+      - name: Create ALB if not exists
+        id: create-alb
+        run: |
+          # Check if ALB exists
+          ALB_ARN=$(aws elbv2 describe-load-balancers --names $ALB_NAME --query "LoadBalancers[0].LoadBalancerArn" --output text --region $AWS_REGION 2>/dev/null || echo "")
+          
+          if [ -z "$ALB_ARN" ] || [ "$ALB_ARN" == "None" ]; then
+            echo "Creating Application Load Balancer..."
+            ALB_ARN=$(aws elbv2 create-load-balancer \
+              --name $ALB_NAME \
+              --subnets $(echo $SUBNET_IDS | tr ',' ' ') \
+              --security-groups $SECURITY_GROUP_ID \
+              --scheme internet-facing \
+              --type application \
+              --ip-address-type ipv4 \
+              --query "LoadBalancers[0].LoadBalancerArn" \
+              --output text \
+              --region $AWS_REGION)
+            
+            # Wait for ALB to be active
+            aws elbv2 wait load-balancer-available --load-balancer-arns $ALB_ARN --region $AWS_REGION
+          fi
+          
+          echo "ALB_ARN=$ALB_ARN" >> $GITHUB_ENV
+          
+          # Get ALB DNS
+          ALB_DNS=$(aws elbv2 describe-load-balancers --load-balancer-arns $ALB_ARN --query "LoadBalancers[0].DNSName" --output text --region $AWS_REGION)
+          echo "ALB_DNS=$ALB_DNS" >> $GITHUB_ENV
+          
+          # Create target groups if not exist
+          for SERVICE in api streamlit; do
+            TG_NAME="cabruca-stg-${SERVICE}-tg"
+            TG_ARN=$(aws elbv2 describe-target-groups --names $TG_NAME --query "TargetGroups[0].TargetGroupArn" --output text --region $AWS_REGION 2>/dev/null || echo "")
+            
+            if [ -z "$TG_ARN" ] || [ "$TG_ARN" == "None" ]; then
+              echo "Creating target group $TG_NAME..."
+              TG_ARN=$(aws elbv2 create-target-group \
+                --name $TG_NAME \
+                --protocol HTTP \
+                --port 8000 \
+                --vpc-id $VPC_ID \
+                --target-type ip \
+                --health-check-enabled \
+                --health-check-path /health \
+                --health-check-interval-seconds 30 \
+                --health-check-timeout-seconds 5 \
+                --healthy-threshold-count 2 \
+                --unhealthy-threshold-count 3 \
+                --matcher HttpCode=200 \
+                --query "TargetGroups[0].TargetGroupArn" \
+                --output text \
+                --region $AWS_REGION)
+            fi
+            
+            if [ "$SERVICE" == "api" ]; then
+              echo "TG_ARN_API=$TG_ARN" >> $GITHUB_ENV
+            else
+              echo "TG_ARN_STREAMLIT=$TG_ARN" >> $GITHUB_ENV
+            fi
+          done
+          
+          # Create or update listener
+          LISTENER_ARN=$(aws elbv2 describe-listeners --load-balancer-arn $ALB_ARN --query "Listeners[0].ListenerArn" --output text --region $AWS_REGION 2>/dev/null || echo "")
+          
+          if [ -z "$LISTENER_ARN" ] || [ "$LISTENER_ARN" == "None" ]; then
+            echo "Creating ALB listener..."
+            aws elbv2 create-listener \
+              --load-balancer-arn $ALB_ARN \
+              --protocol HTTP \
+              --port 80 \
+              --default-actions Type=forward,TargetGroupArn=$TG_ARN_API \
+              --region $AWS_REGION
+          fi
+
+      - name: Create ECS cluster if not exists
+        run: |
+          if ! aws ecs describe-clusters --clusters $ECS_CLUSTER --region $AWS_REGION 2>/dev/null | grep -q "ACTIVE"; then
+            echo "Creating ECS cluster $ECS_CLUSTER..."
+            aws ecs create-cluster \
+              --cluster-name $ECS_CLUSTER \
+              --capacity-providers FARGATE FARGATE_SPOT \
+              --default-capacity-provider-strategy capacityProvider=FARGATE,weight=1 \
+              --settings name=containerInsights,value=enabled \
+              --region $AWS_REGION
+          else
+            echo "✅ ECS cluster $ECS_CLUSTER already exists"
+          fi
+
+      - name: Create IAM roles if not exist
+        run: |
+          # Task execution role
+          EXEC_ROLE_NAME="cabruca-staging-task-execution-role"
+          EXEC_ROLE_ARN=$(aws iam get-role --role-name $EXEC_ROLE_NAME --query "Role.Arn" --output text 2>/dev/null || echo "")
+          
+          if [ -z "$EXEC_ROLE_ARN" ]; then
+            echo "Creating task execution role..."
+            aws iam create-role \
+              --role-name $EXEC_ROLE_NAME \
+              --assume-role-policy-document '{
+                "Version": "2012-10-17",
+                "Statement": [{
+                  "Effect": "Allow",
+                  "Principal": {"Service": "ecs-tasks.amazonaws.com"},
+                  "Action": "sts:AssumeRole"
+                }]
+              }'
+            
+            aws iam attach-role-policy \
+              --role-name $EXEC_ROLE_NAME \
+              --policy-arn arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+            
+            EXEC_ROLE_ARN=$(aws iam get-role --role-name $EXEC_ROLE_NAME --query "Role.Arn" --output text)
+          fi
+          
+          echo "TASK_EXEC_ROLE_ARN=$EXEC_ROLE_ARN" >> $GITHUB_ENV
+          
+          # Task role
+          TASK_ROLE_NAME="cabruca-staging-task-role"
+          TASK_ROLE_ARN=$(aws iam get-role --role-name $TASK_ROLE_NAME --query "Role.Arn" --output text 2>/dev/null || echo "")
+          
+          if [ -z "$TASK_ROLE_ARN" ]; then
+            echo "Creating task role..."
+            aws iam create-role \
+              --role-name $TASK_ROLE_NAME \
+              --assume-role-policy-document '{
+                "Version": "2012-10-17",
+                "Statement": [{
+                  "Effect": "Allow",
+                  "Principal": {"Service": "ecs-tasks.amazonaws.com"},
+                  "Action": "sts:AssumeRole"
+                }]
+              }'
+            
+            TASK_ROLE_ARN=$(aws iam get-role --role-name $TASK_ROLE_NAME --query "Role.Arn" --output text)
+          fi
+          
+          echo "TASK_ROLE_ARN=$TASK_ROLE_ARN" >> $GITHUB_ENV
+
+      - name: Register ECS task definitions
+        run: |
+          # Create task definition for API
+          cat > /tmp/task-def-api.json <<EOF
+          {
+            "family": "cabruca-stg-api-task",
+            "networkMode": "awsvpc",
+            "requiresCompatibilities": ["FARGATE"],
+            "cpu": "$TASK_CPU",
+            "memory": "$TASK_MEMORY",
+            "executionRoleArn": "$TASK_EXEC_ROLE_ARN",
+            "taskRoleArn": "$TASK_ROLE_ARN",
+            "containerDefinitions": [
+              {
+                "name": "cabruca-api",
+                "image": "$IMAGE_URI",
+                "essential": true,
+                "portMappings": [
+                  {
+                    "containerPort": 8000,
+                    "protocol": "tcp"
+                  }
+                ],
+                "environment": [
+                  {"name": "ENVIRONMENT", "value": "staging"},
+                  {"name": "PORT", "value": "8000"}
+                ],
+                "logConfiguration": {
+                  "logDriver": "awslogs",
+                  "options": {
+                    "awslogs-group": "/ecs/cabruca-staging",
+                    "awslogs-region": "$AWS_REGION",
+                    "awslogs-stream-prefix": "api",
+                    "awslogs-create-group": "true"
+                  }
+                },
+                "healthCheck": {
+                  "command": ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"],
+                  "interval": 30,
+                  "timeout": 5,
+                  "retries": 3,
+                  "startPeriod": 60
+                }
+              }
+            ]
+          }
+          EOF
+          
+          # Create task definition for Streamlit
+          cat > /tmp/task-def-streamlit.json <<EOF
+          {
+            "family": "cabruca-stg-streamlit-task",
+            "networkMode": "awsvpc",
+            "requiresCompatibilities": ["FARGATE"],
+            "cpu": "$TASK_CPU",
+            "memory": "$TASK_MEMORY",
+            "executionRoleArn": "$TASK_EXEC_ROLE_ARN",
+            "taskRoleArn": "$TASK_ROLE_ARN",
+            "containerDefinitions": [
+              {
+                "name": "cabruca-streamlit",
+                "image": "$IMAGE_URI",
+                "essential": true,
+                "portMappings": [
+                  {
+                    "containerPort": 8000,
+                    "protocol": "tcp"
+                  }
+                ],
+                "environment": [
+                  {"name": "ENVIRONMENT", "value": "staging"},
+                  {"name": "PORT", "value": "8000"}
+                ],
+                "logConfiguration": {
+                  "logDriver": "awslogs",
+                  "options": {
+                    "awslogs-group": "/ecs/cabruca-staging",
+                    "awslogs-region": "$AWS_REGION",
+                    "awslogs-stream-prefix": "streamlit",
+                    "awslogs-create-group": "true"
+                  }
+                },
+                "healthCheck": {
+                  "command": ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"],
+                  "interval": 30,
+                  "timeout": 5,
+                  "retries": 3,
+                  "startPeriod": 60
+                }
+              }
+            ]
+          }
+          EOF
+          
+          # Register task definitions
+          aws ecs register-task-definition --cli-input-json file:///tmp/task-def-api.json --region $AWS_REGION
+          aws ecs register-task-definition --cli-input-json file:///tmp/task-def-streamlit.json --region $AWS_REGION
+
+      - name: Create or update ECS services
+        run: |
+          # Function to create or update service
+          create_or_update_service() {
+            local SERVICE_NAME=$1
+            local TASK_FAMILY=$2
+            local TARGET_GROUP_ARN=$3
+            local CONTAINER_NAME=$4
+            
+            # Check if service exists and get its status
+            SERVICE_STATUS=$(aws ecs describe-services --cluster $ECS_CLUSTER --services $SERVICE_NAME --region $AWS_REGION 2>/dev/null | grep -o '"status": "[^"]*"' | head -1 | cut -d'"' -f4)
+            
+            if [ -n "$SERVICE_STATUS" ]; then
+              echo "Service $SERVICE_NAME exists with status: $SERVICE_STATUS"
+              
+              if [ "$SERVICE_STATUS" == "ACTIVE" ]; then
+                # Try to update the active service
+                echo "Attempting to update service..."
+                if aws ecs update-service \
+                  --cluster $ECS_CLUSTER \
+                  --service $SERVICE_NAME \
+                  --task-definition $TASK_FAMILY \
+                  --force-new-deployment \
+                  --desired-count $DESIRED_COUNT \
+                  --region $AWS_REGION 2>/dev/null; then
+                  echo "✅ Successfully updated service $SERVICE_NAME"
+                  return 0
+                else
+                  echo "Update failed, will delete and recreate..."
+                  SERVICE_STATUS="NEEDS_DELETE"
+                fi
+              fi
+              
+              if [ "$SERVICE_STATUS" == "DRAINING" ] || [ "$SERVICE_STATUS" == "NEEDS_DELETE" ]; then
+                echo "Service is $SERVICE_STATUS, waiting for deletion..."
+                
+                # Try to delete if not already deleting
+                if [ "$SERVICE_STATUS" != "DRAINING" ]; then
+                  # First scale down if ACTIVE
+                  aws ecs update-service \
+                    --cluster $ECS_CLUSTER \
+                    --service $SERVICE_NAME \
+                    --desired-count 0 \
+                    --region $AWS_REGION 2>/dev/null || true
+                  
+                  # Then delete
+                  aws ecs delete-service \
+                    --cluster $ECS_CLUSTER \
+                    --service $SERVICE_NAME \
+                    --force \
+                    --region $AWS_REGION 2>/dev/null || true
+                fi
+                
+                # Wait for service to be fully deleted
+                echo "Waiting for service to be deleted..."
+                for i in {1..60}; do
+                  CURRENT_STATUS=$(aws ecs describe-services --cluster $ECS_CLUSTER --services $SERVICE_NAME --region $AWS_REGION 2>/dev/null | grep -o '"status": "[^"]*"' | head -1 | cut -d'"' -f4)
+                  if [ -z "$CURRENT_STATUS" ] || [ "$CURRENT_STATUS" == "INACTIVE" ]; then
+                    echo "Service deleted/inactive successfully"
+                    break
+                  fi
+                  echo "Waiting for service deletion... ($i/60) Current status: $CURRENT_STATUS"
+                  sleep 5
+                done
+              fi
+            fi
+            
+            # Create the service (either new or after deletion)
+            echo "Creating service $SERVICE_NAME..."
+            if aws ecs create-service \
+              --cluster $ECS_CLUSTER \
+              --service-name $SERVICE_NAME \
+              --task-definition $TASK_FAMILY \
+              --desired-count $DESIRED_COUNT \
+              --launch-type FARGATE \
+              --network-configuration "awsvpcConfiguration={subnets=[$SUBNET_IDS],securityGroups=[$SECURITY_GROUP_ID],assignPublicIp=ENABLED}" \
+              --load-balancers targetGroupArn=$TARGET_GROUP_ARN,containerName=$CONTAINER_NAME,containerPort=8000 \
+              --health-check-grace-period-seconds 60 \
+              --region $AWS_REGION; then
+              echo "✅ Successfully created service $SERVICE_NAME"
+            else
+              echo "⚠️ Failed to create service $SERVICE_NAME (it might already exist)"
+            fi
+          }
+          
+          # Create/update API service
+          create_or_update_service "$ECS_SERVICE_API" "cabruca-stg-api-task" "$TG_ARN_API" "cabruca-api"
+          
+          # Create/update Streamlit service
+          create_or_update_service "$ECS_SERVICE_STREAMLIT" "cabruca-stg-streamlit-task" "$TG_ARN_STREAMLIT" "cabruca-streamlit"
+
+      - name: Wait for services to stabilize
+        timeout-minutes: 10
+        run: |
+          echo "Waiting for services to stabilize..."
+          aws ecs wait services-stable \
+            --cluster $ECS_CLUSTER \
+            --services $ECS_SERVICE_API $ECS_SERVICE_STREAMLIT \
+            --region $AWS_REGION \
+            || echo "⚠️ Services did not stabilize within timeout"
+
+      - name: Health check
+        continue-on-error: true
+        run: |
+          echo "Waiting for ALB to be healthy..."
+          sleep 30
+          
+          echo "ALB DNS: http://$ALB_DNS"
+          echo "Checking staging health endpoints..."
+          
+          curl -f http://$ALB_DNS/health || echo "Health check pending..."
+          curl -f http://$ALB_DNS/api || echo "API check pending..."
+          curl -f http://$ALB_DNS/dashboard || echo "Dashboard check pending..."
+          
+          echo "Staging deployment complete!"
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const albDns = process.env.ALB_DNS;
+            const body = `🚀 Staging deployment complete!\n\nPreview URLs:\n- Health: http://${albDns}/health\n- API: http://${albDns}/api\n- Dashboard: http://${albDns}/dashboard\n- Streamlit: http://${albDns}/streamlit\n\n*Note: It may take a few minutes for the services to be fully available.*`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            })

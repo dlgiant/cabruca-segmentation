@@ -3,10 +3,10 @@
 
 # DynamoDB table for storing agent monitoring events
 resource "aws_dynamodb_table" "agent_monitoring" {
-  name           = "agent-monitoring"
-  billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "event_id"
-  range_key      = "timestamp"
+  name         = "agent-monitoring"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "event_id"
+  range_key    = "timestamp"
 
   attribute {
     name = "event_id"
@@ -66,10 +66,10 @@ resource "aws_dynamodb_table" "agent_monitoring" {
 
 # DynamoDB table for storing agent decisions with reasoning chains
 resource "aws_dynamodb_table" "agent_decisions" {
-  name           = "agent-decisions"
-  billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "decision_id"
-  range_key      = "timestamp"
+  name         = "agent-decisions"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "decision_id"
+  range_key    = "timestamp"
 
   attribute {
     name = "decision_id"
@@ -99,10 +99,10 @@ resource "aws_dynamodb_table" "agent_decisions" {
   }
 
   global_secondary_index {
-    name            = "decision-type-index"
-    hash_key        = "decision_type"
-    range_key       = "timestamp"
-    projection_type = "INCLUDE"
+    name               = "decision-type-index"
+    hash_key           = "decision_type"
+    range_key          = "timestamp"
+    projection_type    = "INCLUDE"
     non_key_attributes = ["confidence_score", "cost"]
   }
 
@@ -349,11 +349,11 @@ resource "aws_iam_role_policy_attachment" "agentops_monitoring_attachment" {
 resource "aws_lambda_function" "deploy_dashboards" {
   filename         = "agentops_dashboard.zip"
   function_name    = "agentops-deploy-dashboards"
-  role            = aws_iam_role.agentops_monitoring_role.arn
-  handler         = "agentops_dashboard.lambda_handler"
+  role             = aws_iam_role.agentops_monitoring_role.arn
+  handler          = "agentops_dashboard.lambda_handler"
   source_code_hash = filebase64sha256("agentops_dashboard.zip")
-  runtime         = "python3.11"
-  timeout         = 60
+  runtime          = "python3.11"
+  timeout          = 60
 
   environment {
     variables = {
@@ -374,7 +374,7 @@ resource "aws_cloudwatch_event_rule" "agent_collaboration" {
   description = "Capture agent collaboration events"
 
   event_pattern = jsonencode({
-    source = ["agentops.manager", "agentops.engineer", "agentops.qa"]
+    source      = ["agentops.manager", "agentops.engineer", "agentops.qa"]
     detail-type = ["AgentCollaboration"]
   })
 
@@ -389,17 +389,17 @@ resource "aws_cloudwatch_event_rule" "agent_collaboration" {
 resource "aws_lambda_function" "analyze_collaboration" {
   filename         = "agentops_monitoring.zip"
   function_name    = "agentops-analyze-collaboration"
-  role            = aws_iam_role.agentops_monitoring_role.arn
-  handler         = "analyze_collaboration.lambda_handler"
+  role             = aws_iam_role.agentops_monitoring_role.arn
+  handler          = "analyze_collaboration.lambda_handler"
   source_code_hash = filebase64sha256("agentops_monitoring.zip")
-  runtime         = "python3.11"
-  timeout         = 60
+  runtime          = "python3.11"
+  timeout          = 60
 
   environment {
     variables = {
       MONITORING_TABLE_NAME = aws_dynamodb_table.agent_monitoring.name
       DECISIONS_TABLE_NAME  = aws_dynamodb_table.agent_decisions.name
-      ENVIRONMENT          = var.environment
+      ENVIRONMENT           = var.environment
     }
   }
 
@@ -428,21 +428,21 @@ resource "aws_lambda_permission" "allow_eventbridge_collaboration" {
 
 # Outputs
 output "monitoring_table_name" {
-  value = aws_dynamodb_table.agent_monitoring.name
+  value       = aws_dynamodb_table.agent_monitoring.name
   description = "Name of the agent monitoring DynamoDB table"
 }
 
 output "decisions_table_name" {
-  value = aws_dynamodb_table.agent_decisions.name
+  value       = aws_dynamodb_table.agent_decisions.name
   description = "Name of the agent decisions DynamoDB table"
 }
 
 output "cost_alert_topic_arn" {
-  value = aws_sns_topic.agentops_cost_alerts.arn
+  value       = aws_sns_topic.agentops_cost_alerts.arn
   description = "ARN of the cost alerts SNS topic"
 }
 
 output "dashboard_url" {
-  value = "https://console.aws.amazon.com/cloudwatch/home?region=${var.aws_region}#dashboards:name=${aws_cloudwatch_dashboard.agentops_main.dashboard_name}"
+  value       = "https://console.aws.amazon.com/cloudwatch/home?region=${var.aws_region}#dashboards:name=${aws_cloudwatch_dashboard.agentops_main.dashboard_name}"
   description = "URL to the main AgentOps dashboard"
 }

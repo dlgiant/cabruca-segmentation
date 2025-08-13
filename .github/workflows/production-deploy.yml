@@ -1,0 +1,101 @@
+name: Production Deployment
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  AWS_REGION: sa-east-1
+  AWS_ACCOUNT_ID: 919014037196
+  ENVIRONMENT: production
+
+jobs:
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Load production configuration
+        run: |
+          source configs/production.env
+          echo "ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}" >> $GITHUB_ENV
+          echo "ECR_REPOSITORY=$ECR_REPO" >> $GITHUB_ENV
+          echo "IMAGE_TAG=${{ github.sha }}" >> $GITHUB_ENV
+
+      - name: Build Docker image
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:production
+
+      - name: Push to ECR
+        run: |
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:production
+
+      - name: Update ECS service
+        run: |
+          source configs/production.env
+          
+          # Update API service
+          aws ecs update-service \
+            --cluster $ECS_CLUSTER \
+            --service $ECS_SERVICE_API \
+            --force-new-deployment \
+            --desired-count $DESIRED_COUNT \
+            --region $AWS_REGION
+          
+          # Update Streamlit service
+          aws ecs update-service \
+            --cluster $ECS_CLUSTER \
+            --service $ECS_SERVICE_STREAMLIT \
+            --force-new-deployment \
+            --desired-count $DESIRED_COUNT \
+            --region $AWS_REGION
+
+      - name: Wait for stable deployment
+        run: |
+          source configs/production.env
+          
+          aws ecs wait services-stable \
+            --cluster $ECS_CLUSTER \
+            --services $ECS_SERVICE_API $ECS_SERVICE_STREAMLIT \
+            --region $AWS_REGION
+
+      - name: Health check
+        run: |
+          source configs/production.env
+          
+          echo "Checking production health endpoints..."
+          curl -f http://$ALB_DNS/health || exit 1
+          curl -f http://$ALB_DNS/api || exit 1
+          curl -f http://$ALB_DNS/dashboard || exit 1
+          
+          echo "✅ Production deployment successful!"
+
+      - name: Send deployment notification
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "Production deployment successful for commit ${{ github.sha }}"
+          else
+            echo "Production deployment failed for commit ${{ github.sha }}"
+          fi

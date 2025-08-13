@@ -3,11 +3,11 @@
 output "deployment_info" {
   description = "MVP Deployment Information"
   value = {
-    api_url     = "http://${aws_lb.main.dns_name}/api"
-    dashboard   = "http://${aws_lb.main.dns_name}/dashboard"
+    api_url      = "http://${aws_lb.main.dns_name}/api"
+    dashboard    = "http://${aws_lb.main.dns_name}/dashboard"
     health_check = "http://${aws_lb.main.dns_name}/health"
-    region      = var.aws_region
-    environment = var.environment
+    region       = var.aws_region
+    environment  = var.environment
   }
 }
 
@@ -27,22 +27,22 @@ output "estimated_monthly_cost" {
 output "cost_savings" {
   description = "Cost savings from production configuration"
   value = {
-    gpu_instances  = "$400/month saved (No GPU)"
-    rds_database   = "$100/month saved (No RDS)"
-    elasticache    = "$50/month saved (No Redis)"
-    cloudfront     = "$50/month saved (No CDN)"
-    multi_nat      = "$90/month saved (Single NAT)"
-    total_savings  = "~$690/month"
+    gpu_instances = "$400/month saved (No GPU)"
+    rds_database  = "$100/month saved (No RDS)"
+    elasticache   = "$50/month saved (No Redis)"
+    cloudfront    = "$50/month saved (No CDN)"
+    multi_nat     = "$90/month saved (Single NAT)"
+    total_savings = "~$690/month"
   }
 }
 
 output "quick_start" {
   description = "Quick start commands"
   value = {
-    deploy     = "terraform apply -var-file=mvp.tfvars"
-    test_api   = "curl ${aws_lb.main.dns_name}/health"
-    view_logs  = "aws logs tail /ecs/cabruca-mvp/api --follow"
-    ssh_debug  = "aws ecs execute-command --cluster cabruca-mvp-cluster --task <task-id> --container api --interactive --command /bin/sh"
+    deploy    = "terraform apply -var-file=mvp.tfvars"
+    test_api  = "curl ${aws_lb.main.dns_name}/health"
+    view_logs = "aws logs tail /ecs/cabruca-mvp/api --follow"
+    ssh_debug = "aws ecs execute-command --cluster cabruca-mvp-cluster --task <task-id> --container api --interactive --command /bin/sh"
   }
 }
 

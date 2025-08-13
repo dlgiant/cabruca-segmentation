@@ -6,12 +6,12 @@ locals {
   agent_common_tags = merge(
     local.common_tags,
     {
-      Component   = "Agent-Infrastructure"
-      CostCenter  = "AI-Agents"
-      Automation  = "Enabled"
+      Component  = "Agent-Infrastructure"
+      CostCenter = "AI-Agents"
+      Automation = "Enabled"
     }
   )
-  
+
   agents = {
     manager = {
       name        = "manager-agent"
@@ -82,9 +82,9 @@ locals {
 
 resource "aws_iam_role" "agent_lambda_role" {
   for_each = local.agents
-  
+
   name = "${local.app_name}-${each.value.name}-role"
-  
+
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -97,7 +97,7 @@ resource "aws_iam_role" "agent_lambda_role" {
       }
     ]
   })
-  
+
   tags = merge(
     local.agent_common_tags,
     {
@@ -110,10 +110,10 @@ resource "aws_iam_role" "agent_lambda_role" {
 # IAM Policy for Lambda execution
 resource "aws_iam_policy" "agent_lambda_policy" {
   for_each = local.agents
-  
+
   name        = "${local.app_name}-${each.value.name}-policy"
   description = "Policy for ${each.value.name} Lambda function"
-  
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -186,7 +186,7 @@ resource "aws_iam_policy" "agent_lambda_policy" {
       }
     ]
   })
-  
+
   tags = merge(
     local.agent_common_tags,
     {
@@ -199,7 +199,7 @@ resource "aws_iam_policy" "agent_lambda_policy" {
 # Attach policies to roles
 resource "aws_iam_role_policy_attachment" "agent_lambda_policy" {
   for_each = local.agents
-  
+
   role       = aws_iam_role.agent_lambda_role[each.key].name
   policy_arn = aws_iam_policy.agent_lambda_policy[each.key].arn
 }
@@ -207,7 +207,7 @@ resource "aws_iam_role_policy_attachment" "agent_lambda_policy" {
 # Attach AWS managed policy for basic Lambda execution
 resource "aws_iam_role_policy_attachment" "agent_lambda_basic" {
   for_each = local.agents
-  
+
   role       = aws_iam_role.agent_lambda_role[each.key].name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
@@ -218,20 +218,20 @@ resource "aws_iam_role_policy_attachment" "agent_lambda_basic" {
 
 resource "aws_lambda_function" "agents" {
   for_each = local.agents
-  
+
   function_name = "${local.app_name}-${each.value.name}"
   description   = each.value.description
-  
-  role    = aws_iam_role.agent_lambda_role[each.key].arn
-  handler = each.value.handler
-  runtime = each.value.runtime
-  timeout = each.value.timeout
+
+  role        = aws_iam_role.agent_lambda_role[each.key].arn
+  handler     = each.value.handler
+  runtime     = each.value.runtime
+  timeout     = each.value.timeout
   memory_size = each.value.memory
-  
+
   # For MVP, we'll use inline code - in production, use S3
   filename         = "${path.module}/${replace(each.value.name, "-", "_")}/lambda_function.zip"
   source_code_hash = filebase64sha256("${path.module}/${replace(each.value.name, "-", "_")}/lambda_function.zip")
-  
+
   environment {
     variables = merge(
       each.value.environment,
@@ -242,24 +242,24 @@ resource "aws_lambda_function" "agents" {
         S3_ARTIFACTS_BUCKET   = aws_s3_bucket.agent_artifacts.id
         S3_PROMPTS_BUCKET     = aws_s3_bucket.agent_prompts.id
         EVENTBRIDGE_BUS       = "default"
-        REGION               = var.aws_region
-        ENVIRONMENT          = var.environment
-        AGENTOPS_API_KEY     = var.agentops_api_key
+        REGION                = var.aws_region
+        ENVIRONMENT           = var.environment
+        AGENTOPS_API_KEY      = var.agentops_api_key
       }
     )
   }
-  
+
   # reserved_concurrent_executions = var.environment == "prod" ? 10 : 2  # Disabled to avoid account limits
-  
+
   tracing_config {
     mode = "Active"
   }
-  
+
   tags = merge(
     local.agent_common_tags,
     {
-      Name        = "${local.app_name}-${each.value.name}"
-      AgentType   = each.key
+      Name           = "${local.app_name}-${each.value.name}"
+      AgentType      = each.key
       CostAllocation = "Agent-${each.key}"
     }
   )
@@ -268,17 +268,17 @@ resource "aws_lambda_function" "agents" {
 # Lambda Function URLs for direct invocation (MVP simplicity)
 resource "aws_lambda_function_url" "agents" {
   for_each = local.agents
-  
+
   function_name      = aws_lambda_function.agents[each.key].function_name
-  authorization_type = "AWS_IAM"  # Change to "NONE" for public access during testing
-  
+  authorization_type = "AWS_IAM" # Change to "NONE" for public access during testing
+
   cors {
     allow_credentials = true
     allow_origins     = ["*"]
     allow_methods     = ["GET", "POST"]
     allow_headers     = ["*"]
     expose_headers    = ["*"]
-    max_age          = 3600
+    max_age           = 3600
   }
 }
 
@@ -288,46 +288,46 @@ resource "aws_lambda_function_url" "agents" {
 
 # Agent State Table - stores current state of each agent
 resource "aws_dynamodb_table" "agent_state" {
-  name           = "${local.app_name}-agent-state"
-  billing_mode   = "PAY_PER_REQUEST"  # On-demand for MVP
-  hash_key       = "agent_id"
-  range_key      = "timestamp"
-  
+  name         = "${local.app_name}-agent-state"
+  billing_mode = "PAY_PER_REQUEST" # On-demand for MVP
+  hash_key     = "agent_id"
+  range_key    = "timestamp"
+
   attribute {
     name = "agent_id"
     type = "S"
   }
-  
+
   attribute {
     name = "timestamp"
     type = "N"
   }
-  
+
   attribute {
     name = "status"
     type = "S"
   }
-  
+
   global_secondary_index {
     name            = "status-index"
     hash_key        = "status"
     range_key       = "timestamp"
     projection_type = "ALL"
   }
-  
+
   ttl {
     attribute_name = "ttl"
     enabled        = true
   }
-  
+
   point_in_time_recovery {
     enabled = var.environment == "prod" ? true : false
   }
-  
+
   server_side_encryption {
     enabled = true
   }
-  
+
   tags = merge(
     local.agent_common_tags,
     {
@@ -340,50 +340,50 @@ resource "aws_dynamodb_table" "agent_state" {
 
 # Agent Memory Table - stores conversation history and context
 resource "aws_dynamodb_table" "agent_memory" {
-  name           = "${local.app_name}-agent-memory"
-  billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "session_id"
-  range_key      = "message_id"
-  
+  name         = "${local.app_name}-agent-memory"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "session_id"
+  range_key    = "message_id"
+
   attribute {
     name = "session_id"
     type = "S"
   }
-  
+
   attribute {
     name = "message_id"
     type = "S"
   }
-  
+
   attribute {
     name = "agent_id"
     type = "S"
   }
-  
+
   attribute {
     name = "created_at"
     type = "N"
   }
-  
+
   global_secondary_index {
     name            = "agent-index"
     hash_key        = "agent_id"
     range_key       = "created_at"
     projection_type = "ALL"
   }
-  
+
   ttl {
     attribute_name = "ttl"
     enabled        = true
   }
-  
+
   stream_enabled   = true
   stream_view_type = "NEW_AND_OLD_IMAGES"
-  
+
   server_side_encryption {
     enabled = true
   }
-  
+
   tags = merge(
     local.agent_common_tags,
     {
@@ -396,52 +396,52 @@ resource "aws_dynamodb_table" "agent_memory" {
 
 # Agent Tasks Table - stores task queue and results
 resource "aws_dynamodb_table" "agent_tasks" {
-  name           = "${local.app_name}-agent-tasks"
-  billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "task_id"
-  
+  name         = "${local.app_name}-agent-tasks"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "task_id"
+
   attribute {
     name = "task_id"
     type = "S"
   }
-  
+
   attribute {
     name = "agent_id"
     type = "S"
   }
-  
+
   attribute {
     name = "priority"
     type = "N"
   }
-  
+
   attribute {
     name = "status"
     type = "S"
   }
-  
+
   global_secondary_index {
     name            = "agent-priority-index"
     hash_key        = "agent_id"
     range_key       = "priority"
     projection_type = "ALL"
   }
-  
+
   global_secondary_index {
     name            = "status-index"
     hash_key        = "status"
     projection_type = "ALL"
   }
-  
+
   ttl {
     attribute_name = "ttl"
     enabled        = true
   }
-  
+
   server_side_encryption {
     enabled = true
   }
-  
+
   tags = merge(
     local.agent_common_tags,
     {
@@ -459,7 +459,7 @@ resource "aws_dynamodb_table" "agent_tasks" {
 # S3 Bucket for Agent Artifacts (outputs, reports, generated content)
 resource "aws_s3_bucket" "agent_artifacts" {
   bucket = "${local.app_name}-agent-artifacts-${data.aws_caller_identity.current.account_id}"
-  
+
   tags = merge(
     local.agent_common_tags,
     {
@@ -472,7 +472,7 @@ resource "aws_s3_bucket" "agent_artifacts" {
 
 resource "aws_s3_bucket_versioning" "agent_artifacts" {
   bucket = aws_s3_bucket.agent_artifacts.id
-  
+
   versioning_configuration {
     status = var.environment == "prod" ? "Enabled" : "Suspended"
   }
@@ -480,7 +480,7 @@ resource "aws_s3_bucket_versioning" "agent_artifacts" {
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "agent_artifacts" {
   bucket = aws_s3_bucket.agent_artifacts.id
-  
+
   rule {
     apply_server_side_encryption_by_default {
       sse_algorithm = "AES256"
@@ -490,25 +490,25 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "agent_artifacts" 
 
 resource "aws_s3_bucket_lifecycle_configuration" "agent_artifacts" {
   bucket = aws_s3_bucket.agent_artifacts.id
-  
+
   rule {
     id     = "cleanup-old-artifacts"
     status = "Enabled"
-    
+
     transition {
       days          = 30
       storage_class = "STANDARD_IA"
     }
-    
+
     transition {
       days          = 90
       storage_class = "GLACIER"
     }
-    
+
     expiration {
       days = 365
     }
-    
+
     noncurrent_version_expiration {
       noncurrent_days = 30
     }
@@ -518,7 +518,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "agent_artifacts" {
 # S3 Bucket for Agent Prompts and Templates
 resource "aws_s3_bucket" "agent_prompts" {
   bucket = "${local.app_name}-agent-prompts-${data.aws_caller_identity.current.account_id}"
-  
+
   tags = merge(
     local.agent_common_tags,
     {
@@ -531,15 +531,15 @@ resource "aws_s3_bucket" "agent_prompts" {
 
 resource "aws_s3_bucket_versioning" "agent_prompts" {
   bucket = aws_s3_bucket.agent_prompts.id
-  
+
   versioning_configuration {
-    status = "Enabled"  # Always version prompts for rollback capability
+    status = "Enabled" # Always version prompts for rollback capability
   }
 }
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "agent_prompts" {
   bucket = aws_s3_bucket.agent_prompts.id
-  
+
   rule {
     apply_server_side_encryption_by_default {
       sse_algorithm = "AES256"
@@ -550,7 +550,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "agent_prompts" {
 # S3 Bucket for Processing Queue (input data for agents)
 resource "aws_s3_bucket" "agent_queue" {
   bucket = "${local.app_name}-agent-queue-${data.aws_caller_identity.current.account_id}"
-  
+
   tags = merge(
     local.agent_common_tags,
     {
@@ -563,13 +563,13 @@ resource "aws_s3_bucket" "agent_queue" {
 
 resource "aws_s3_bucket_lifecycle_configuration" "agent_queue" {
   bucket = aws_s3_bucket.agent_queue.id
-  
+
   rule {
     id     = "cleanup-processed"
     status = "Enabled"
-    
+
     expiration {
-      days = 7  # Remove processed items after 7 days
+      days = 7 # Remove processed items after 7 days
     }
   }
 }
@@ -577,14 +577,14 @@ resource "aws_s3_bucket_lifecycle_configuration" "agent_queue" {
 # S3 Bucket Event Notifications for triggering agents
 resource "aws_s3_bucket_notification" "agent_queue" {
   bucket = aws_s3_bucket.agent_queue.id
-  
+
   lambda_function {
     lambda_function_arn = aws_lambda_function.agents["data_processor"].arn
     events              = ["s3:ObjectCreated:*"]
     filter_prefix       = "input/"
     filter_suffix       = ".json"
   }
-  
+
   depends_on = [aws_lambda_permission.s3_invoke_data_processor]
 }
 
@@ -603,10 +603,10 @@ resource "aws_lambda_permission" "s3_invoke_data_processor" {
 
 resource "aws_cloudwatch_log_group" "agent_logs" {
   for_each = local.agents
-  
+
   name              = "/aws/lambda/${local.app_name}-${each.value.name}"
   retention_in_days = var.environment == "prod" ? 30 : 7
-  
+
   tags = merge(
     local.agent_common_tags,
     {
@@ -620,7 +620,7 @@ resource "aws_cloudwatch_log_group" "agent_logs" {
 # CloudWatch Log Streams for structured logging
 resource "aws_cloudwatch_log_stream" "agent_streams" {
   for_each = local.agents
-  
+
   name           = "main"
   log_group_name = aws_cloudwatch_log_group.agent_logs[each.key].name
 }
@@ -631,24 +631,24 @@ resource "aws_cloudwatch_log_stream" "agent_streams" {
 
 resource "aws_cloudwatch_metric_alarm" "agent_errors" {
   for_each = local.agents
-  
+
   alarm_name          = "${local.app_name}-${each.value.name}-errors"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = "2"
-  metric_name        = "Errors"
-  namespace          = "AWS/Lambda"
-  period             = "60"
-  statistic          = "Sum"
-  threshold          = "5"
-  alarm_description  = "Alarm when ${each.value.name} has too many errors"
-  treat_missing_data = "notBreaching"
-  
+  metric_name         = "Errors"
+  namespace           = "AWS/Lambda"
+  period              = "60"
+  statistic           = "Sum"
+  threshold           = "5"
+  alarm_description   = "Alarm when ${each.value.name} has too many errors"
+  treat_missing_data  = "notBreaching"
+
   dimensions = {
     FunctionName = aws_lambda_function.agents[each.key].function_name
   }
-  
+
   alarm_actions = var.monitoring_configuration.alarm_email != "" ? [aws_sns_topic.agent_alerts.arn] : []
-  
+
   tags = merge(
     local.agent_common_tags,
     {
@@ -660,24 +660,24 @@ resource "aws_cloudwatch_metric_alarm" "agent_errors" {
 
 resource "aws_cloudwatch_metric_alarm" "agent_duration" {
   for_each = local.agents
-  
+
   alarm_name          = "${local.app_name}-${each.value.name}-duration"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = "2"
-  metric_name        = "Duration"
-  namespace          = "AWS/Lambda"
-  period             = "300"
-  statistic          = "Average"
-  threshold          = each.value.timeout * 0.8 * 1000  # 80% of timeout in ms
-  alarm_description  = "Alarm when ${each.value.name} is running too long"
-  treat_missing_data = "notBreaching"
-  
+  metric_name         = "Duration"
+  namespace           = "AWS/Lambda"
+  period              = "300"
+  statistic           = "Average"
+  threshold           = each.value.timeout * 0.8 * 1000 # 80% of timeout in ms
+  alarm_description   = "Alarm when ${each.value.name} is running too long"
+  treat_missing_data  = "notBreaching"
+
   dimensions = {
     FunctionName = aws_lambda_function.agents[each.key].function_name
   }
-  
+
   alarm_actions = var.monitoring_configuration.alarm_email != "" ? [aws_sns_topic.agent_alerts.arn] : []
-  
+
   tags = merge(
     local.agent_common_tags,
     {
@@ -689,24 +689,24 @@ resource "aws_cloudwatch_metric_alarm" "agent_duration" {
 
 resource "aws_cloudwatch_metric_alarm" "agent_throttles" {
   for_each = local.agents
-  
+
   alarm_name          = "${local.app_name}-${each.value.name}-throttles"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = "1"
-  metric_name        = "Throttles"
-  namespace          = "AWS/Lambda"
-  period             = "60"
-  statistic          = "Sum"
-  threshold          = "1"
-  alarm_description  = "Alarm when ${each.value.name} is being throttled"
-  treat_missing_data = "notBreaching"
-  
+  metric_name         = "Throttles"
+  namespace           = "AWS/Lambda"
+  period              = "60"
+  statistic           = "Sum"
+  threshold           = "1"
+  alarm_description   = "Alarm when ${each.value.name} is being throttled"
+  treat_missing_data  = "notBreaching"
+
   dimensions = {
     FunctionName = aws_lambda_function.agents[each.key].function_name
   }
-  
+
   alarm_actions = var.monitoring_configuration.alarm_email != "" ? [aws_sns_topic.agent_alerts.arn] : []
-  
+
   tags = merge(
     local.agent_common_tags,
     {
@@ -722,7 +722,7 @@ resource "aws_cloudwatch_metric_alarm" "agent_throttles" {
 
 resource "aws_cloudwatch_dashboard" "agents" {
   dashboard_name = "${local.app_name}-agents-dashboard"
-  
+
   dashboard_body = jsonencode({
     widgets = concat(
       # Lambda metrics widgets
@@ -791,7 +791,7 @@ resource "aws_cloudwatch_dashboard" "agents" {
 
 resource "aws_sns_topic" "agent_alerts" {
   name = "${local.app_name}-agent-alerts"
-  
+
   tags = merge(
     local.agent_common_tags,
     {
@@ -803,7 +803,7 @@ resource "aws_sns_topic" "agent_alerts" {
 
 resource "aws_sns_topic_subscription" "agent_alerts_email" {
   count = var.monitoring_configuration.alarm_email != "" ? 1 : 0
-  
+
   topic_arn = aws_sns_topic.agent_alerts.arn
   protocol  = "email"
   endpoint  = var.monitoring_configuration.alarm_email
@@ -816,7 +816,7 @@ resource "aws_sns_topic_subscription" "agent_alerts_email" {
 resource "aws_cloudwatch_event_rule" "agent_orchestration" {
   name        = "${local.app_name}-agent-orchestration"
   description = "Orchestrate agent workflows"
-  
+
   event_pattern = jsonencode({
     source = ["cabruca.agents"]
     detail-type = [
@@ -825,7 +825,7 @@ resource "aws_cloudwatch_event_rule" "agent_orchestration" {
       "Agent Task Failed"
     ]
   })
-  
+
   tags = merge(
     local.agent_common_tags,
     {
@@ -854,7 +854,7 @@ resource "aws_lambda_permission" "eventbridge_invoke_manager" {
 
 resource "aws_resourcegroups_group" "agent_infrastructure" {
   name = "${local.app_name}-agent-infrastructure"
-  
+
   resource_query {
     query = jsonencode({
       ResourceTypeFilters = [
@@ -876,7 +876,7 @@ resource "aws_resourcegroups_group" "agent_infrastructure" {
       ]
     })
   }
-  
+
   tags = merge(
     local.agent_common_tags,
     {
@@ -899,9 +899,9 @@ output "agent_lambda_functions" {
   description = "Agent Lambda function details"
   value = {
     for k, v in aws_lambda_function.agents : k => {
-      name         = v.function_name
-      arn          = v.arn
-      invoke_url   = aws_lambda_function_url.agents[k].function_url
+      name          = v.function_name
+      arn           = v.arn
+      invoke_url    = aws_lambda_function_url.agents[k].function_url
       last_modified = v.last_modified
     }
   }
@@ -939,9 +939,9 @@ output "total_estimated_monthly_cost" {
   description = "Estimated monthly cost for agent infrastructure (USD)"
   value = {
     lambda_invocations = "~$2-10 (based on usage)"
-    dynamodb          = "~$5-15 (on-demand pricing)"
-    s3_storage        = "~$1-5 (depends on data volume)"
-    cloudwatch_logs   = "~$2-5"
-    total_estimate    = "~$10-35/month"
+    dynamodb           = "~$5-15 (on-demand pricing)"
+    s3_storage         = "~$1-5 (depends on data volume)"
+    cloudwatch_logs    = "~$2-5"
+    total_estimate     = "~$10-35/month"
   }
 }

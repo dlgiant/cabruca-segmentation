@@ -3,6 +3,12 @@ name: Pull Request Validation
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  security-events: write
     
 env:
   PYTHON_VERSION: '3.11'
@@ -73,7 +79,7 @@ jobs:
           bandit -r . -f json -o bandit-report.json || true
           
       - name: Upload Bandit results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: bandit-results
           path: bandit-report.json

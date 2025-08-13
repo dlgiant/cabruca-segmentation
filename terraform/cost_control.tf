@@ -22,22 +22,22 @@
 resource "aws_api_gateway_rest_api" "agent_api" {
   name        = "${var.environment}-agent-control-api"
   description = "API Gateway for agent control with request throttling"
-  
+
   endpoint_configuration {
     types = ["REGIONAL"]
   }
 
   tags = merge(var.tags, {
-    Name        = "${var.environment}-agent-api"
-    Component   = "CostControl"
-    CostCenter  = "engineering"
+    Name       = "${var.environment}-agent-api"
+    Component  = "CostControl"
+    CostCenter = "engineering"
   })
 }
 
 # Create usage plan with throttling (100 requests/minute)
 resource "aws_api_gateway_usage_plan" "agent_throttle_plan" {
-  name         = "${var.environment}-agent-throttle-plan"
-  description  = "Usage plan with 100 requests/minute throttling"
+  name        = "${var.environment}-agent-throttle-plan"
+  description = "Usage plan with 100 requests/minute throttling"
 
   api_stages {
     api_id = aws_api_gateway_rest_api.agent_api.id
@@ -45,13 +45,13 @@ resource "aws_api_gateway_usage_plan" "agent_throttle_plan" {
   }
 
   quota_settings {
-    limit  = 6000    # 100 req/min * 60 min = 6000 requests per hour
+    limit  = 6000 # 100 req/min * 60 min = 6000 requests per hour
     period = "DAY"
   }
 
   throttle_settings {
-    rate_limit  = 100  # Requests per second steady-state rate
-    burst_limit = 200  # Maximum bucket capacity for burst
+    rate_limit  = 100 # Requests per second steady-state rate
+    burst_limit = 200 # Maximum bucket capacity for burst
   }
 }
 
@@ -122,8 +122,8 @@ resource "aws_api_gateway_integration" "manager_lambda_integration" {
   http_method = aws_api_gateway_method.trigger_manager.http_method
 
   integration_http_method = "POST"
-  type                   = "AWS_PROXY"
-  uri                    = "arn:aws:apigateway:${data.aws_region.current.name}:lambda:path/2015-03-31/functions/arn:aws:lambda:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:function:manager-agent-${var.environment}/invocations"
+  type                    = "AWS_PROXY"
+  uri                     = "arn:aws:apigateway:${data.aws_region.current.name}:lambda:path/2015-03-31/functions/arn:aws:lambda:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:function:manager-agent-${var.environment}/invocations"
 }
 
 resource "aws_api_gateway_integration" "engineer_lambda_integration" {
@@ -132,8 +132,8 @@ resource "aws_api_gateway_integration" "engineer_lambda_integration" {
   http_method = aws_api_gateway_method.trigger_engineer.http_method
 
   integration_http_method = "POST"
-  type                   = "AWS_PROXY"
-  uri                    = "arn:aws:apigateway:${data.aws_region.current.name}:lambda:path/2015-03-31/functions/arn:aws:lambda:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:function:engineer-agent-${var.environment}/invocations"
+  type                    = "AWS_PROXY"
+  uri                     = "arn:aws:apigateway:${data.aws_region.current.name}:lambda:path/2015-03-31/functions/arn:aws:lambda:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:function:engineer-agent-${var.environment}/invocations"
 }
 
 resource "aws_api_gateway_integration" "qa_lambda_integration" {
@@ -142,8 +142,8 @@ resource "aws_api_gateway_integration" "qa_lambda_integration" {
   http_method = aws_api_gateway_method.trigger_qa.http_method
 
   integration_http_method = "POST"
-  type                   = "AWS_PROXY"
-  uri                    = "arn:aws:apigateway:${data.aws_region.current.name}:lambda:path/2015-03-31/functions/arn:aws:lambda:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:function:${var.environment}-qa-agent/invocations"
+  type                    = "AWS_PROXY"
+  uri                     = "arn:aws:apigateway:${data.aws_region.current.name}:lambda:path/2015-03-31/functions/arn:aws:lambda:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:function:${var.environment}-qa-agent/invocations"
 }
 
 # Lambda permissions for API Gateway
@@ -153,7 +153,7 @@ resource "aws_lambda_permission" "manager_api_gateway" {
   function_name = aws_lambda_function.agents["manager"].function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_api_gateway_rest_api.agent_api.execution_arn}/*/*"
-  
+
   depends_on = [aws_lambda_function.agents]
 }
 
@@ -163,7 +163,7 @@ resource "aws_lambda_permission" "engineer_api_gateway" {
   function_name = aws_lambda_function.agents["engineer"].function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_api_gateway_rest_api.agent_api.execution_arn}/*/*"
-  
+
   depends_on = [aws_lambda_function.agents]
 }
 
@@ -173,7 +173,7 @@ resource "aws_lambda_permission" "qa_api_gateway" {
   function_name = aws_lambda_function.agents["qa"].function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_api_gateway_rest_api.agent_api.execution_arn}/*/*"
-  
+
   depends_on = [aws_lambda_function.agents]
 }
 
@@ -240,17 +240,17 @@ resource "aws_lambda_function" "auto_shutdown" {
 
   filename         = data.archive_file.auto_shutdown_package[0].output_path
   function_name    = "${var.environment}-auto-shutdown"
-  role            = aws_iam_role.auto_shutdown_role[0].arn
-  handler         = "auto_shutdown.lambda_handler"
+  role             = aws_iam_role.auto_shutdown_role[0].arn
+  handler          = "auto_shutdown.lambda_handler"
   source_code_hash = data.archive_file.auto_shutdown_package[0].output_base64sha256
-  runtime         = "python3.11"
-  timeout         = 60
+  runtime          = "python3.11"
+  timeout          = 60
 
   environment {
     variables = {
       ENVIRONMENT = var.environment
       SHUTDOWN_TAGS = jsonencode({
-        Environment = var.environment
+        Environment  = var.environment
         AutoShutdown = "true"
       })
     }
@@ -347,7 +347,7 @@ resource "aws_cloudwatch_event_rule" "after_hours_shutdown" {
 
   name                = "${var.environment}-after-hours-shutdown"
   description         = "Shutdown development resources after business hours"
-  schedule_expression = "cron(0 23 ? * MON-FRI *)"  # 8 PM BRT (11 PM UTC)
+  schedule_expression = "cron(0 23 ? * MON-FRI *)" # 8 PM BRT (11 PM UTC)
 
   tags = {
     Name       = "${var.environment}-after-hours-shutdown"
@@ -361,7 +361,7 @@ resource "aws_cloudwatch_event_rule" "morning_startup" {
 
   name                = "${var.environment}-morning-startup"
   description         = "Start development resources in the morning"
-  schedule_expression = "cron(0 10 ? * MON-FRI *)"  # 7 AM BRT (10 AM UTC)
+  schedule_expression = "cron(0 10 ? * MON-FRI *)" # 7 AM BRT (10 AM UTC)
 
   tags = {
     Name       = "${var.environment}-morning-startup"
@@ -426,9 +426,9 @@ resource "aws_cloudwatch_metric_alarm" "budget_80_percent" {
   evaluation_periods  = "1"
   metric_name         = "EstimatedCharges"
   namespace           = "AWS/Billing"
-  period              = "86400"  # Daily
+  period              = "86400" # Daily
   statistic           = "Maximum"
-  threshold           = 400  # 80% of $500
+  threshold           = 400 # 80% of $500
   alarm_description   = "Alert when AWS costs reach 80% of monthly budget ($400)"
   alarm_actions       = [aws_sns_topic.cost_alerts.arn]
 
@@ -451,7 +451,7 @@ resource "aws_cloudwatch_metric_alarm" "budget_90_percent" {
   namespace           = "AWS/Billing"
   period              = "86400"
   statistic           = "Maximum"
-  threshold           = 450  # 90% of $500
+  threshold           = 450 # 90% of $500
   alarm_description   = "CRITICAL: AWS costs reached 90% of monthly budget ($450)"
   alarm_actions       = [aws_sns_topic.cost_alerts.arn, aws_sns_topic.critical_alerts.arn]
 
@@ -476,11 +476,11 @@ resource "aws_cloudwatch_metric_alarm" "budget_exceeded" {
   statistic           = "Maximum"
   threshold           = 500
   alarm_description   = "EMERGENCY: Monthly budget of $500 has been exceeded!"
-  alarm_actions       = [
+  alarm_actions = [
     aws_sns_topic.cost_alerts.arn,
     aws_sns_topic.critical_alerts.arn
   ]
-  
+
   dimensions = {
     Currency = "USD"
   }
@@ -555,13 +555,13 @@ resource "aws_cloudwatch_dashboard" "cost_control" {
           ]
           view    = "timeSeries"
           stacked = false
-          region  = "us-east-1"  # Billing metrics are only in us-east-1
+          region  = "us-east-1" # Billing metrics are only in us-east-1
           title   = "Monthly Cost Tracking"
           period  = 86400
           yAxis = {
             left = {
-              min = 0
-              max = 500
+              min   = 0
+              max   = 500
               label = "Cost (USD)"
             }
           }
@@ -570,7 +570,7 @@ resource "aws_cloudwatch_dashboard" "cost_control" {
               {
                 label = "Budget Limit"
                 value = 500
-                fill = "above"
+                fill  = "above"
                 color = "#FF0000"
               },
               {
@@ -739,21 +739,21 @@ resource "aws_cloudwatch_dashboard" "cost_control" {
 resource "aws_lambda_function" "circuit_breaker" {
   filename         = data.archive_file.circuit_breaker_package.output_path
   function_name    = "${var.environment}-cost-circuit-breaker"
-  role            = aws_iam_role.circuit_breaker_role.arn
-  handler         = "circuit_breaker.lambda_handler"
+  role             = aws_iam_role.circuit_breaker_role.arn
+  handler          = "circuit_breaker.lambda_handler"
   source_code_hash = data.archive_file.circuit_breaker_package.output_base64sha256
-  runtime         = "python3.11"
-  timeout         = 60
+  runtime          = "python3.11"
+  timeout          = 60
 
   environment {
     variables = {
-      ENVIRONMENT = var.environment
-      COST_LIMIT  = "500"
-      DAILY_LIMIT = "17"  # ~$500 / 30 days
-      MANAGER_FUNCTION = "manager-agent-${var.environment}"
+      ENVIRONMENT       = var.environment
+      COST_LIMIT        = "500"
+      DAILY_LIMIT       = "17" # ~$500 / 30 days
+      MANAGER_FUNCTION  = "manager-agent-${var.environment}"
       ENGINEER_FUNCTION = "engineer-agent-${var.environment}"
-      QA_FUNCTION = "${var.environment}-qa-agent"
-      SNS_TOPIC_ARN = aws_sns_topic.critical_alerts.arn
+      QA_FUNCTION       = "${var.environment}-qa-agent"
+      SNS_TOPIC_ARN     = aws_sns_topic.critical_alerts.arn
     }
   }
 
@@ -883,33 +883,33 @@ resource "aws_lambda_permission" "allow_eventbridge_circuit_breaker" {
 
 # AWS Budgets for additional cost control
 resource "aws_budgets_budget" "monthly_budget" {
-  name              = "${var.environment}-monthly-budget"
-  budget_type       = "COST"
-  limit_amount      = "500"
-  limit_unit        = "USD"
-  time_unit         = "MONTHLY"
+  name         = "${var.environment}-monthly-budget"
+  budget_type  = "COST"
+  limit_amount = "500"
+  limit_unit   = "USD"
+  time_unit    = "MONTHLY"
 
   notification {
     comparison_operator        = "GREATER_THAN"
     threshold                  = 80
-    threshold_type            = "PERCENTAGE"
-    notification_type         = "ACTUAL"
+    threshold_type             = "PERCENTAGE"
+    notification_type          = "ACTUAL"
     subscriber_email_addresses = var.alert_email != "" ? [var.alert_email] : ["placeholder@example.com"]
   }
 
   notification {
     comparison_operator        = "GREATER_THAN"
     threshold                  = 90
-    threshold_type            = "PERCENTAGE"
-    notification_type         = "ACTUAL"
+    threshold_type             = "PERCENTAGE"
+    notification_type          = "ACTUAL"
     subscriber_email_addresses = var.alert_email != "" ? [var.alert_email] : ["placeholder@example.com"]
   }
 
   notification {
     comparison_operator        = "GREATER_THAN"
     threshold                  = 100
-    threshold_type            = "PERCENTAGE"
-    notification_type         = "ACTUAL"
+    threshold_type             = "PERCENTAGE"
+    notification_type          = "ACTUAL"
     subscriber_email_addresses = var.alert_email != "" ? [var.alert_email] : ["placeholder@example.com"]
   }
 

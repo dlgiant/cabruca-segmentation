@@ -1,6 +1,6 @@
 terraform {
   required_version = ">= 1.0"
-  
+
   required_providers {
     aws = {
       source  = "hashicorp/aws"
@@ -51,37 +51,37 @@ data "aws_caller_identity" "current" {}
 
 # DynamoDB table for tracking tasks
 resource "aws_dynamodb_table" "engineer_tasks" {
-  name           = "engineer-tasks-${var.environment}"
-  billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "task_id"
-  
+  name         = "engineer-tasks-${var.environment}"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "task_id"
+
   attribute {
     name = "task_id"
     type = "S"
   }
-  
+
   attribute {
     name = "status"
     type = "S"
   }
-  
+
   attribute {
     name = "created_at"
     type = "S"
   }
-  
+
   global_secondary_index {
     name            = "status-created-index"
     hash_key        = "status"
     range_key       = "created_at"
     projection_type = "ALL"
   }
-  
+
   ttl {
     attribute_name = "expiry"
     enabled        = true
   }
-  
+
   tags = {
     Name        = "engineer-tasks"
     Environment = var.environment
@@ -91,7 +91,7 @@ resource "aws_dynamodb_table" "engineer_tasks" {
 # S3 bucket for storing artifacts
 resource "aws_s3_bucket" "engineer_artifacts" {
   bucket = "${var.s3_bucket_prefix}-${var.environment}-${data.aws_caller_identity.current.account_id}"
-  
+
   tags = {
     Name        = "engineer-agent-artifacts"
     Environment = var.environment
@@ -100,7 +100,7 @@ resource "aws_s3_bucket" "engineer_artifacts" {
 
 resource "aws_s3_bucket_versioning" "engineer_artifacts" {
   bucket = aws_s3_bucket.engineer_artifacts.id
-  
+
   versioning_configuration {
     status = "Enabled"
   }
@@ -108,7 +108,7 @@ resource "aws_s3_bucket_versioning" "engineer_artifacts" {
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "engineer_artifacts" {
   bucket = aws_s3_bucket.engineer_artifacts.id
-  
+
   rule {
     apply_server_side_encryption_by_default {
       sse_algorithm = "AES256"
@@ -118,15 +118,15 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "engineer_artifact
 
 resource "aws_s3_bucket_lifecycle_configuration" "engineer_artifacts" {
   bucket = aws_s3_bucket.engineer_artifacts.id
-  
+
   rule {
     id     = "cleanup-old-artifacts"
     status = "Enabled"
-    
+
     expiration {
       days = 30
     }
-    
+
     noncurrent_version_expiration {
       noncurrent_days = 7
     }
@@ -263,23 +263,23 @@ resource "aws_lambda_layer_version" "engineer_agent_dependencies" {
 resource "aws_lambda_function" "engineer_agent" {
   filename         = "../lambda_deployment.zip"
   function_name    = "engineer-agent-${var.environment}"
-  role            = aws_iam_role.engineer_agent_role.arn
-  handler         = "lambda_function.lambda_handler"
+  role             = aws_iam_role.engineer_agent_role.arn
+  handler          = "lambda_function.lambda_handler"
   source_code_hash = filebase64sha256("../lambda_deployment.zip")
-  runtime         = "python3.11"
-  memory_size     = 1024  # 1GB as specified
-  timeout         = 600   # 10 minutes as specified
+  runtime          = "python3.11"
+  memory_size      = 1024 # 1GB as specified
+  timeout          = 600  # 10 minutes as specified
 
   environment {
     variables = {
       GITHUB_TOKEN_SECRET_NAME = var.github_token_secret_name
-      GITHUB_REPO             = var.github_repo
+      GITHUB_REPO              = var.github_repo
       ANTHROPIC_API_KEY_SECRET = var.anthropic_api_key_secret
-      S3_BUCKET               = aws_s3_bucket.engineer_artifacts.id
-      TASK_TABLE_NAME         = aws_dynamodb_table.engineer_tasks.name
-      EVENT_BUS_NAME          = var.event_bus_name
-      ENVIRONMENT             = var.environment
-      MAX_ITERATIONS          = "10"
+      S3_BUCKET                = aws_s3_bucket.engineer_artifacts.id
+      TASK_TABLE_NAME          = aws_dynamodb_table.engineer_tasks.name
+      EVENT_BUS_NAME           = var.event_bus_name
+      ENVIRONMENT              = var.environment
+      MAX_ITERATIONS           = "10"
     }
   }
 
@@ -298,7 +298,7 @@ resource "aws_cloudwatch_event_rule" "system_issue_trigger" {
   description = "Trigger Engineer Agent on system issues from Manager Agent"
 
   event_pattern = jsonencode({
-    source      = ["manager.agent"]
+    source = ["manager.agent"]
     detail-type = [
       "SystemIssue.high_error_rate",
       "SystemIssue.high_latency",
@@ -362,7 +362,7 @@ resource "aws_lambda_permission" "allow_eventbridge_opportunity" {
 # CloudWatch Log Group
 resource "aws_cloudwatch_log_group" "engineer_agent_logs" {
   name              = "/aws/lambda/${aws_lambda_function.engineer_agent.function_name}"
-  retention_in_days = 14  # Keep logs for 14 days
+  retention_in_days = 14 # Keep logs for 14 days
 
   tags = {
     Name        = "engineer-agent-logs"
@@ -375,12 +375,12 @@ resource "aws_cloudwatch_metric_alarm" "engineer_agent_errors" {
   alarm_name          = "engineer-agent-errors-${var.environment}"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = "2"
-  metric_name        = "Errors"
-  namespace          = "AWS/Lambda"
-  period             = "300"
-  statistic          = "Sum"
-  threshold          = "10"
-  alarm_description  = "This metric monitors Engineer Agent Lambda errors"
+  metric_name         = "Errors"
+  namespace           = "AWS/Lambda"
+  period              = "300"
+  statistic           = "Sum"
+  threshold           = "10"
+  alarm_description   = "This metric monitors Engineer Agent Lambda errors"
 
   dimensions = {
     FunctionName = aws_lambda_function.engineer_agent.function_name
@@ -396,12 +396,12 @@ resource "aws_cloudwatch_metric_alarm" "engineer_agent_duration" {
   alarm_name          = "engineer-agent-duration-${var.environment}"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = "2"
-  metric_name        = "Duration"
-  namespace          = "AWS/Lambda"
-  period             = "300"
-  statistic          = "Average"
-  threshold          = "300000"  # 5 minutes in milliseconds
-  alarm_description  = "This metric monitors Engineer Agent Lambda duration"
+  metric_name         = "Duration"
+  namespace           = "AWS/Lambda"
+  period              = "300"
+  statistic           = "Average"
+  threshold           = "300000" # 5 minutes in milliseconds
+  alarm_description   = "This metric monitors Engineer Agent Lambda duration"
 
   dimensions = {
     FunctionName = aws_lambda_function.engineer_agent.function_name
@@ -417,12 +417,12 @@ resource "aws_cloudwatch_metric_alarm" "engineer_agent_throttles" {
   alarm_name          = "engineer-agent-throttles-${var.environment}"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = "1"
-  metric_name        = "Throttles"
-  namespace          = "AWS/Lambda"
-  period             = "300"
-  statistic          = "Sum"
-  threshold          = "5"
-  alarm_description  = "This metric monitors Engineer Agent Lambda throttles"
+  metric_name         = "Throttles"
+  namespace           = "AWS/Lambda"
+  period              = "300"
+  statistic           = "Sum"
+  threshold           = "5"
+  alarm_description   = "This metric monitors Engineer Agent Lambda throttles"
 
   dimensions = {
     FunctionName = aws_lambda_function.engineer_agent.function_name

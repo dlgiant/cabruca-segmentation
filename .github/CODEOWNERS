@@ -1,0 +1,19 @@
+# Code Owners for Cabruca Segmentation Project
+# These owners will be requested for review when someone opens a pull request
+
+# Global owners
+* @ricardonunes
+
+# Infrastructure and deployment
+/terraform/ @ricardonunes
+/.github/ @ricardonunes
+/configs/ @ricardonunes
+
+# Application code
+/src/ @ricardonunes
+/api_server.py @ricardonunes
+/streamlit_app.py @ricardonunes
+
+# Documentation
+*.md @ricardonunes
+/docs/ @ricardonunes

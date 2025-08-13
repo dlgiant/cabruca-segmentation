@@ -4,10 +4,10 @@
 # Basic Configuration
 project_name = "cabruca-segmentation"
 environment  = "development"
-aws_region   = "sa-east-1"  # São Paulo
+aws_region   = "sa-east-1" # São Paulo
 
 # Domain Configuration (placeholder - update with actual values)
-domain_name = ""
+domain_name         = ""
 ssl_certificate_arn = ""
 
 # Instance Configuration - Minimal for development
@@ -25,20 +25,20 @@ inference_max_instances = 1
 enable_gpu         = false
 enable_cloudfront  = false
 enable_elasticache = false
-enable_rds        = false
+enable_rds         = false
 
 # Cost Optimization - Maximum savings
 cost_optimization = {
   use_spot_instances    = true
-  spot_max_price       = "0.10"
+  spot_max_price        = "0.10"
   use_reserved_capacity = false
-  auto_shutdown_dev    = true
-  shutdown_schedule    = "0 18 * * *"  # Shutdown at 6 PM
+  auto_shutdown_dev     = true
+  shutdown_schedule     = "0 18 * * *" # Shutdown at 6 PM
 }
 
 # Minimal Monitoring
 monitoring_configuration = {
-  enable_cloudwatch   = true
+  enable_cloudwatch  = true
   enable_xray        = false
   log_retention_days = 3
   alarm_email        = ""
@@ -47,17 +47,17 @@ monitoring_configuration = {
 
 # No Backup for dev
 backup_configuration = {
-  enable_backup        = false
+  enable_backup         = false
   backup_retention_days = 0
-  backup_window       = ""
-  maintenance_window  = ""
-  multi_region_backup = false
+  backup_window         = ""
+  maintenance_window    = ""
+  multi_region_backup   = false
 }
 
 # Network Configuration
 network_configuration = {
-  vpc_cidr             = "10.2.0.0/16"
-  enable_nat_gateway   = true
+  vpc_cidr            = "10.2.0.0/16"
+  enable_nat_gateway  = true
   enable_vpn          = false
   enable_private_link = false
   allowed_ip_ranges   = ["0.0.0.0/0"]
@@ -67,15 +67,15 @@ network_configuration = {
 api_rate_limits = {
   "free" = {
     requests_per_minute = 10
-    burst_size         = 20
+    burst_size          = 20
   }
   "basic" = {
     requests_per_minute = 30
-    burst_size         = 50
+    burst_size          = 50
   }
   "premium" = {
     requests_per_minute = 60
-    burst_size         = 100
+    burst_size          = 100
   }
 }
 
@@ -106,12 +106,12 @@ model_configurations = {
 
 # ML Pipeline Configuration
 enable_ml_pipeline        = false
-ml_instance_type         = "ml.t3.micro"
-training_cpu             = "1024"
-training_memory          = "2048"
-annotation_enabled       = false
+ml_instance_type          = "ml.t3.micro"
+training_cpu              = "1024"
+training_memory           = "2048"
+annotation_enabled        = false
 enable_scheduled_training = false
-training_schedule        = ""
+training_schedule         = ""
 
 # Tags
 tags = {

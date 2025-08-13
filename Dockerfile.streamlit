@@ -1,0 +1,58 @@
+FROM python:3.9-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy application files
+COPY streamlit_app.py .
+COPY dashboard_server.py .
+COPY simple_health_server.py .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir \
+    streamlit==1.29.0 \
+    pandas==2.0.3 \
+    plotly==5.18.0 \
+    pillow==10.1.0 \
+    requests==2.31.0 \
+    numpy==1.24.3 \
+    fastapi==0.104.1 \
+    uvicorn==0.24.0
+
+# Create Streamlit config
+RUN mkdir -p ~/.streamlit
+RUN echo '\
+[general]\n\
+email = ""\n\
+\n\
+[server]\n\
+headless = true\n\
+enableCORS = false\n\
+enableXsrfProtection = false\n\
+port = 8501\n\
+address = "0.0.0.0"\n\
+\n\
+[browser]\n\
+serverAddress = "0.0.0.0"\n\
+serverPort = 8501\n\
+\n\
+[theme]\n\
+primaryColor = "#4CAF50"\n\
+backgroundColor = "#FFFFFF"\n\
+secondaryBackgroundColor = "#F0F2F6"\n\
+textColor = "#262730"\n\
+' > ~/.streamlit/config.toml
+
+# Create a startup script that handles both /streamlit and /dashboard routes
+RUN echo '#!/bin/bash\n\
+streamlit run streamlit_app.py --server.baseUrlPath=/streamlit\
+' > /app/start.sh && chmod +x /app/start.sh
+
+EXPOSE 8501
+
+# Run Streamlit
+CMD ["streamlit", "run", "streamlit_app.py", "--server.port=8501", "--server.address=0.0.0.0"]

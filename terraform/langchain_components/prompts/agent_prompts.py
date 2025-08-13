@@ -3,10 +3,10 @@ Prompt Templates for Agent Roles
 Defines specific prompts for Manager, Engineer, and QA agents
 """
 
+from typing import Any, Dict, List
+
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder, PromptTemplate
 from langchain.prompts.few_shot import FewShotPromptTemplate
-from typing import List, Dict, Any
-
 
 # ==================== MANAGER AGENT PROMPTS ====================
 
@@ -35,9 +35,12 @@ Current Context:
 
 Use chain-of-thought reasoning to analyze situations thoroughly before making decisions."""
 
-MANAGER_ANALYSIS_PROMPT = ChatPromptTemplate.from_messages([
-    ("system", MANAGER_SYSTEM_PROMPT),
-    ("human", """Analyze the following system metrics and provide recommendations:
+MANAGER_ANALYSIS_PROMPT = ChatPromptTemplate.from_messages(
+    [
+        ("system", MANAGER_SYSTEM_PROMPT),
+        (
+            "human",
+            """Analyze the following system metrics and provide recommendations:
 
 Metrics Summary:
 - API Latency: {api_latency}ms (threshold: {latency_threshold}ms)
@@ -64,9 +67,11 @@ Provide:
 1. Severity assessment
 2. Root cause analysis
 3. Recommended actions
-4. Whether to trigger automated remediation"""),
-    MessagesPlaceholder(variable_name="chat_history", optional=True),
-])
+4. Whether to trigger automated remediation""",
+        ),
+        MessagesPlaceholder(variable_name="chat_history", optional=True),
+    ]
+)
 
 MANAGER_DECISION_PROMPT = PromptTemplate(
     input_variables=["issue_type", "severity", "metrics", "context"],
@@ -84,7 +89,7 @@ Decide on the appropriate action:
 3. MONITOR: Continue monitoring, no immediate action
 4. ESCALATE: Escalate to human operators
 
-Explain your reasoning step by step, then provide your decision."""
+Explain your reasoning step by step, then provide your decision.""",
 )
 
 
@@ -118,9 +123,12 @@ Current Context:
 
 Use the ReAct pattern: Thought -> Action -> Observation -> Repeat until complete."""
 
-ENGINEER_IMPLEMENTATION_PROMPT = ChatPromptTemplate.from_messages([
-    ("system", ENGINEER_SYSTEM_PROMPT),
-    ("human", """Implement a solution for the following task:
+ENGINEER_IMPLEMENTATION_PROMPT = ChatPromptTemplate.from_messages(
+    [
+        ("system", ENGINEER_SYSTEM_PROMPT),
+        (
+            "human",
+            """Implement a solution for the following task:
 
 Task Type: {task_type}
 Priority: {priority}
@@ -146,9 +154,11 @@ Step-by-step implementation plan:
 3. Implement the fix
 4. Add necessary tests
 5. Create pull request
-6. Notify QA Agent for validation"""),
-    MessagesPlaceholder(variable_name="agent_scratchpad"),
-])
+6. Notify QA Agent for validation""",
+        ),
+        MessagesPlaceholder(variable_name="agent_scratchpad"),
+    ]
+)
 
 ENGINEER_CODE_GENERATION_PROMPT = PromptTemplate(
     input_variables=["language", "requirements", "context", "examples"],
@@ -171,7 +181,7 @@ Generate production-ready code with:
 - Documentation/comments
 - Unit tests
 
-Code:"""
+Code:""",
 )
 
 ENGINEER_TERRAFORM_PROMPT = PromptTemplate(
@@ -192,7 +202,7 @@ Generate Terraform code that:
 - Has proper dependencies
 - Includes lifecycle rules if needed
 
-Terraform Configuration:"""
+Terraform Configuration:""",
 )
 
 
@@ -227,9 +237,12 @@ Current Context:
 
 Follow test-driven validation approach and provide comprehensive reports."""
 
-QA_TEST_GENERATION_PROMPT = ChatPromptTemplate.from_messages([
-    ("system", QA_SYSTEM_PROMPT),
-    ("human", """Generate tests for the following deployment:
+QA_TEST_GENERATION_PROMPT = ChatPromptTemplate.from_messages(
+    [
+        ("system", QA_SYSTEM_PROMPT),
+        (
+            "human",
+            """Generate tests for the following deployment:
 
 Deployment Type: {deployment_type}
 Changes: {changes}
@@ -249,8 +262,10 @@ Generate:
 2. Edge cases and error conditions
 3. Performance benchmarks
 4. Rollback criteria
-5. Success metrics"""),
-])
+5. Success metrics""",
+        ),
+    ]
+)
 
 QA_VALIDATION_PROMPT = PromptTemplate(
     input_variables=["test_results", "baseline_metrics", "thresholds"],
@@ -276,7 +291,7 @@ Provide detailed validation report with:
 - Summary verdict (PASS/FAIL/CONDITIONAL)
 - Risk assessment
 - Recommendations
-- Required actions before production"""
+- Required actions before production""",
 )
 
 QA_CYPRESS_TEST_PROMPT = PromptTemplate(
@@ -304,7 +319,7 @@ Use best practices:
 - Meaningful assertions
 - Clear test descriptions
 
-Cypress Test Code:"""
+Cypress Test Code:""",
 )
 
 
@@ -345,7 +360,7 @@ Step 5: Define Success Metrics
 - What are the KPIs?
 - What is the rollback criteria?
 
-Now, let's apply this framework:"""
+Now, let's apply this framework:""",
 )
 
 COT_DECISION_MAKING_PROMPT = PromptTemplate(
@@ -364,7 +379,7 @@ Step 3: Consider second-order effects
 Step 4: Check for biases or assumptions
 Step 5: Make recommendation with confidence level
 
-Reasoning:"""
+Reasoning:""",
 )
 
 
@@ -388,7 +403,7 @@ Recovery Strategy:
 5. Notify relevant parties
 6. Document for future reference
 
-Recommended fallback action:"""
+Recommended fallback action:""",
 )
 
 FALLBACK_DEGRADED_MODE_PROMPT = PromptTemplate(
@@ -409,7 +424,7 @@ Degraded Mode Operations:
 5. Maintain audit trail
 6. Monitor for service recovery
 
-Degraded mode configuration:"""
+Degraded mode configuration:""",
 )
 
 
@@ -418,92 +433,98 @@ Degraded mode configuration:"""
 cost_optimization_examples = [
     {
         "situation": "EC2 instances running at 10% CPU utilization",
-        "recommendation": "Downsize instances or consolidate workloads"
+        "recommendation": "Downsize instances or consolidate workloads",
     },
     {
         "situation": "RDS database with no connections for 7 days",
-        "recommendation": "Stop the database and create snapshot"
+        "recommendation": "Stop the database and create snapshot",
     },
     {
         "situation": "S3 bucket with 1TB of 2-year-old logs",
-        "recommendation": "Implement lifecycle policy to move to Glacier"
-    }
+        "recommendation": "Implement lifecycle policy to move to Glacier",
+    },
 ]
 
 COST_OPTIMIZATION_PROMPT = FewShotPromptTemplate(
     examples=cost_optimization_examples,
     example_prompt=PromptTemplate(
         input_variables=["situation", "recommendation"],
-        template="Situation: {situation}\nRecommendation: {recommendation}"
+        template="Situation: {situation}\nRecommendation: {recommendation}",
     ),
     prefix="Given AWS resource usage patterns, recommend cost optimizations:",
     suffix="Situation: {input}\nRecommendation:",
-    input_variables=["input"]
+    input_variables=["input"],
 )
 
 
 # ==================== PROMPT SELECTOR ====================
 
+
 class PromptSelector:
     """Selects appropriate prompt based on agent and context"""
-    
+
     @staticmethod
     def get_prompt(agent_type: str, task_type: str) -> ChatPromptTemplate:
         """Get the appropriate prompt template"""
-        
+
         prompt_map = {
             "manager": {
                 "analysis": MANAGER_ANALYSIS_PROMPT,
                 "decision": MANAGER_DECISION_PROMPT,
-                "cost_optimization": COST_OPTIMIZATION_PROMPT
+                "cost_optimization": COST_OPTIMIZATION_PROMPT,
             },
             "engineer": {
                 "implementation": ENGINEER_IMPLEMENTATION_PROMPT,
                 "code_generation": ENGINEER_CODE_GENERATION_PROMPT,
-                "terraform": ENGINEER_TERRAFORM_PROMPT
+                "terraform": ENGINEER_TERRAFORM_PROMPT,
             },
             "qa": {
                 "test_generation": QA_TEST_GENERATION_PROMPT,
                 "validation": QA_VALIDATION_PROMPT,
-                "cypress": QA_CYPRESS_TEST_PROMPT
+                "cypress": QA_CYPRESS_TEST_PROMPT,
             },
             "common": {
                 "problem_solving": COT_PROBLEM_SOLVING_PROMPT,
                 "decision_making": COT_DECISION_MAKING_PROMPT,
                 "error_recovery": FALLBACK_ERROR_RECOVERY_PROMPT,
-                "degraded_mode": FALLBACK_DEGRADED_MODE_PROMPT
-            }
+                "degraded_mode": FALLBACK_DEGRADED_MODE_PROMPT,
+            },
         }
-        
+
         if agent_type in prompt_map and task_type in prompt_map[agent_type]:
             return prompt_map[agent_type][task_type]
         elif task_type in prompt_map.get("common", {}):
             return prompt_map["common"][task_type]
         else:
             # Return a generic prompt if no specific one is found
-            return ChatPromptTemplate.from_messages([
-                ("system", "You are an AI assistant. Help with the following task."),
-                ("human", "{input}")
-            ])
+            return ChatPromptTemplate.from_messages(
+                [
+                    (
+                        "system",
+                        "You are an AI assistant. Help with the following task.",
+                    ),
+                    ("human", "{input}"),
+                ]
+            )
 
 
 # Export all prompts and selector
 __all__ = [
-    'MANAGER_SYSTEM_PROMPT',
-    'MANAGER_ANALYSIS_PROMPT',
-    'MANAGER_DECISION_PROMPT',
-    'ENGINEER_SYSTEM_PROMPT',
-    'ENGINEER_IMPLEMENTATION_PROMPT',
-    'ENGINEER_CODE_GENERATION_PROMPT',
-    'ENGINEER_TERRAFORM_PROMPT',
-    'QA_SYSTEM_PROMPT',
-    'QA_TEST_GENERATION_PROMPT',
-    'QA_VALIDATION_PROMPT',
-    'QA_CYPRESS_TEST_PROMPT',
-    'COT_PROBLEM_SOLVING_PROMPT',
-    'COT_DECISION_MAKING_PROMPT',
-    'FALLBACK_ERROR_RECOVERY_PROMPT',
-    'FALLBACK_DEGRADED_MODE_PROMPT',
-    'COST_OPTIMIZATION_PROMPT',
-    'PromptSelector'
+    "MANAGER_SYSTEM_PROMPT",
+    "MANAGER_ANALYSIS_PROMPT",
+    "MANAGER_DECISION_PROMPT",
+    "ENGINEER_SYSTEM_PROMPT",
+    "ENGINEER_IMPLEMENTATION_PROMPT",
+    "ENGINEER_CODE_GENERATION_PROMPT",
+    "ENGINEER_TERRAFORM_PROMPT",
+    "QA_SYSTEM_PROMPT",
+    "QA_TEST_GENERATION_PROMPT",
+    "QA_VALIDATION_PROMPT",
+    "QA_CYPRESS_TEST_PROMPT",
+    "COT_PROBLEM_SOLVING_PROMPT",
+    "COT_DECISION_MAKING_PROMPT",
+    "FALLBACK_ERROR_RECOVERY_PROMPT",
+    "FALLBACK_DEGRADED_MODE_PROMPT",
+    "COST_OPTIMIZATION_PROMPT",
+    "PromptSelector",
 ]
