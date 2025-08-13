@@ -392,70 +392,79 @@ jobs:
             local TARGET_GROUP_ARN=$3
             local CONTAINER_NAME=$4
             
-            # Check if service exists
-            if aws ecs describe-services --cluster $ECS_CLUSTER --services $SERVICE_NAME --region $AWS_REGION 2>/dev/null | grep -q "ACTIVE\|DRAINING"; then
-              echo "Service $SERVICE_NAME exists, checking if update is possible..."
+            # Check if service exists and get its status
+            SERVICE_STATUS=$(aws ecs describe-services --cluster $ECS_CLUSTER --services $SERVICE_NAME --region $AWS_REGION 2>/dev/null | grep -o '"status": "[^"]*"' | head -1 | cut -d'"' -f4)
+            
+            if [ -n "$SERVICE_STATUS" ]; then
+              echo "Service $SERVICE_NAME exists with status: $SERVICE_STATUS"
               
-              # Try to update the service
-              if aws ecs update-service \
-                --cluster $ECS_CLUSTER \
-                --service $SERVICE_NAME \
-                --task-definition $TASK_FAMILY \
-                --force-new-deployment \
-                --desired-count $DESIRED_COUNT \
-                --region $AWS_REGION 2>/dev/null; then
-                echo "✅ Successfully updated service $SERVICE_NAME"
-              else
-                echo "Update failed, deleting and recreating service $SERVICE_NAME..."
-                # Delete the service
-                aws ecs update-service \
+              if [ "$SERVICE_STATUS" == "ACTIVE" ]; then
+                # Try to update the active service
+                echo "Attempting to update service..."
+                if aws ecs update-service \
                   --cluster $ECS_CLUSTER \
                   --service $SERVICE_NAME \
-                  --desired-count 0 \
-                  --region $AWS_REGION
+                  --task-definition $TASK_FAMILY \
+                  --force-new-deployment \
+                  --desired-count $DESIRED_COUNT \
+                  --region $AWS_REGION 2>/dev/null; then
+                  echo "✅ Successfully updated service $SERVICE_NAME"
+                  return 0
+                else
+                  echo "Update failed, will delete and recreate..."
+                  SERVICE_STATUS="NEEDS_DELETE"
+                fi
+              fi
+              
+              if [ "$SERVICE_STATUS" == "DRAINING" ] || [ "$SERVICE_STATUS" == "NEEDS_DELETE" ]; then
+                echo "Service is $SERVICE_STATUS, waiting for deletion..."
                 
-                aws ecs delete-service \
-                  --cluster $ECS_CLUSTER \
-                  --service $SERVICE_NAME \
-                  --force \
-                  --region $AWS_REGION
+                # Try to delete if not already deleting
+                if [ "$SERVICE_STATUS" != "DRAINING" ]; then
+                  # First scale down if ACTIVE
+                  aws ecs update-service \
+                    --cluster $ECS_CLUSTER \
+                    --service $SERVICE_NAME \
+                    --desired-count 0 \
+                    --region $AWS_REGION 2>/dev/null || true
+                  
+                  # Then delete
+                  aws ecs delete-service \
+                    --cluster $ECS_CLUSTER \
+                    --service $SERVICE_NAME \
+                    --force \
+                    --region $AWS_REGION 2>/dev/null || true
+                fi
                 
                 # Wait for service to be fully deleted
                 echo "Waiting for service to be deleted..."
-                for i in {1..30}; do
-                  if ! aws ecs describe-services --cluster $ECS_CLUSTER --services $SERVICE_NAME --region $AWS_REGION 2>/dev/null | grep -q "ACTIVE\|DRAINING"; then
-                    echo "Service deleted successfully"
+                for i in {1..60}; do
+                  CURRENT_STATUS=$(aws ecs describe-services --cluster $ECS_CLUSTER --services $SERVICE_NAME --region $AWS_REGION 2>/dev/null | grep -o '"status": "[^"]*"' | head -1 | cut -d'"' -f4)
+                  if [ -z "$CURRENT_STATUS" ] || [ "$CURRENT_STATUS" == "INACTIVE" ]; then
+                    echo "Service deleted/inactive successfully"
                     break
                   fi
-                  echo "Waiting for service deletion... ($i/30)"
+                  echo "Waiting for service deletion... ($i/60) Current status: $CURRENT_STATUS"
                   sleep 5
                 done
-                
-                # Create new service
-                echo "Creating new service $SERVICE_NAME..."
-                aws ecs create-service \
-                  --cluster $ECS_CLUSTER \
-                  --service-name $SERVICE_NAME \
-                  --task-definition $TASK_FAMILY \
-                  --desired-count $DESIRED_COUNT \
-                  --launch-type FARGATE \
-                  --network-configuration "awsvpcConfiguration={subnets=[$SUBNET_IDS],securityGroups=[$SECURITY_GROUP_ID],assignPublicIp=ENABLED}" \
-                  --load-balancers targetGroupArn=$TARGET_GROUP_ARN,containerName=$CONTAINER_NAME,containerPort=8000 \
-                  --health-check-grace-period-seconds 60 \
-                  --region $AWS_REGION
               fi
+            fi
+            
+            # Create the service (either new or after deletion)
+            echo "Creating service $SERVICE_NAME..."
+            if aws ecs create-service \
+              --cluster $ECS_CLUSTER \
+              --service-name $SERVICE_NAME \
+              --task-definition $TASK_FAMILY \
+              --desired-count $DESIRED_COUNT \
+              --launch-type FARGATE \
+              --network-configuration "awsvpcConfiguration={subnets=[$SUBNET_IDS],securityGroups=[$SECURITY_GROUP_ID],assignPublicIp=ENABLED}" \
+              --load-balancers targetGroupArn=$TARGET_GROUP_ARN,containerName=$CONTAINER_NAME,containerPort=8000 \
+              --health-check-grace-period-seconds 60 \
+              --region $AWS_REGION; then
+              echo "✅ Successfully created service $SERVICE_NAME"
             else
-              echo "Creating service $SERVICE_NAME..."
-              aws ecs create-service \
-                --cluster $ECS_CLUSTER \
-                --service-name $SERVICE_NAME \
-                --task-definition $TASK_FAMILY \
-                --desired-count $DESIRED_COUNT \
-                --launch-type FARGATE \
-                --network-configuration "awsvpcConfiguration={subnets=[$SUBNET_IDS],securityGroups=[$SECURITY_GROUP_ID],assignPublicIp=ENABLED}" \
-                --load-balancers targetGroupArn=$TARGET_GROUP_ARN,containerName=$CONTAINER_NAME,containerPort=8000 \
-                --health-check-grace-period-seconds 60 \
-                --region $AWS_REGION
+              echo "⚠️ Failed to create service $SERVICE_NAME (it might already exist)"
             fi
           }
           
