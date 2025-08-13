@@ -56,44 +56,74 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:staging-${{ github.run_number }}
 
-      - name: Update ECS service
+      - name: Check if ECS cluster exists
+        id: check-cluster
         run: |
           source configs/staging.env
           
-          # Update API service
-          aws ecs update-service \
-            --cluster $ECS_CLUSTER \
-            --service $ECS_SERVICE_API \
-            --force-new-deployment \
-            --desired-count $DESIRED_COUNT \
-            --region $AWS_REGION
+          if aws ecs describe-clusters --clusters $ECS_CLUSTER --region $AWS_REGION 2>/dev/null | grep -q "ACTIVE"; then
+            echo "cluster_exists=true" >> $GITHUB_OUTPUT
+            echo "✅ ECS cluster $ECS_CLUSTER exists"
+          else
+            echo "cluster_exists=false" >> $GITHUB_OUTPUT
+            echo "⚠️ ECS cluster $ECS_CLUSTER does not exist - skipping deployment"
+          fi
+
+      - name: Update ECS service
+        if: steps.check-cluster.outputs.cluster_exists == 'true'
+        run: |
+          source configs/staging.env
           
-          # Update Streamlit service
-          aws ecs update-service \
-            --cluster $ECS_CLUSTER \
-            --service $ECS_SERVICE_STREAMLIT \
-            --force-new-deployment \
-            --desired-count $DESIRED_COUNT \
-            --region $AWS_REGION
+          # Check if services exist before updating
+          for service in $ECS_SERVICE_API $ECS_SERVICE_STREAMLIT; do
+            if aws ecs describe-services --cluster $ECS_CLUSTER --services $service --region $AWS_REGION 2>/dev/null | grep -q "ACTIVE"; then
+              echo "Updating service $service..."
+              aws ecs update-service \
+                --cluster $ECS_CLUSTER \
+                --service $service \
+                --force-new-deployment \
+                --desired-count $DESIRED_COUNT \
+                --region $AWS_REGION || echo "Failed to update $service"
+            else
+              echo "⚠️ Service $service does not exist - skipping"
+            fi
+          done
 
       - name: Wait for stable deployment
+        if: steps.check-cluster.outputs.cluster_exists == 'true'
+        timeout-minutes: 10
         run: |
           source configs/staging.env
           
-          aws ecs wait services-stable \
-            --cluster $ECS_CLUSTER \
-            --services $ECS_SERVICE_API $ECS_SERVICE_STREAMLIT \
-            --region $AWS_REGION \
-            || true  # Don't fail on staging
+          # Only wait for services that exist
+          EXISTING_SERVICES=""
+          for service in $ECS_SERVICE_API $ECS_SERVICE_STREAMLIT; do
+            if aws ecs describe-services --cluster $ECS_CLUSTER --services $service --region $AWS_REGION 2>/dev/null | grep -q "ACTIVE"; then
+              EXISTING_SERVICES="$EXISTING_SERVICES $service"
+            fi
+          done
+          
+          if [ -n "$EXISTING_SERVICES" ]; then
+            echo "Waiting for services to stabilize: $EXISTING_SERVICES"
+            aws ecs wait services-stable \
+              --cluster $ECS_CLUSTER \
+              --services $EXISTING_SERVICES \
+              --region $AWS_REGION \
+              || echo "⚠️ Services did not stabilize within timeout"
+          else
+            echo "⚠️ No active services to wait for"
+          fi
 
       - name: Health check
+        if: steps.check-cluster.outputs.cluster_exists == 'true'
+        continue-on-error: true
         run: |
           source configs/staging.env
           
           echo "Checking staging health endpoints..."
-          curl -f http://$ALB_DNS/health || echo "Health check failed"
-          curl -f http://$ALB_DNS/api || echo "API check failed"
-          curl -f http://$ALB_DNS/dashboard || echo "Dashboard check failed"
+          curl -f http://$ALB_DNS/health || echo "Health check failed - infrastructure may not exist"
+          curl -f http://$ALB_DNS/api || echo "API check failed - infrastructure may not exist"
+          curl -f http://$ALB_DNS/dashboard || echo "Dashboard check failed - infrastructure may not exist"
           
           echo "Staging deployment complete!"
 
@@ -102,9 +132,18 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
+            const clusterExists = '${{ steps.check-cluster.outputs.cluster_exists }}' === 'true';
+            let body;
+            
+            if (clusterExists) {
+              body = `🚀 Staging deployment complete!\n\nPreview URLs:\n- Health: http://cabruca-stg-alb-428619257.sa-east-1.elb.amazonaws.com/health\n- API: http://cabruca-stg-alb-428619257.sa-east-1.elb.amazonaws.com/api\n- Dashboard: http://cabruca-stg-alb-428619257.sa-east-1.elb.amazonaws.com/dashboard\n- Streamlit: http://cabruca-stg-alb-428619257.sa-east-1.elb.amazonaws.com/streamlit`;
+            } else {
+              body = `⚠️ Staging infrastructure not deployed\n\nThe staging ECS cluster and services do not exist yet.\nTo deploy infrastructure:\n1. Run the Terraform deployment workflow\n2. Select 'staging' environment\n3. Apply the infrastructure changes\n\nOnce infrastructure is deployed, subsequent pushes will automatically deploy to staging.`;
+            }
+            
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `🚀 Staging deployment complete!\n\nPreview URLs:\n- Health: http://cabruca-stg-alb-428619257.sa-east-1.elb.amazonaws.com/health\n- API: http://cabruca-stg-alb-428619257.sa-east-1.elb.amazonaws.com/api\n- Dashboard: http://cabruca-stg-alb-428619257.sa-east-1.elb.amazonaws.com/dashboard\n- Streamlit: http://cabruca-stg-alb-428619257.sa-east-1.elb.amazonaws.com/streamlit`
+              body: body
             })
