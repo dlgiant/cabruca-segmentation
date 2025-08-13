@@ -420,8 +420,16 @@ jobs:
                   --force \
                   --region $AWS_REGION
                 
-                # Wait a bit for deletion
-                sleep 10
+                # Wait for service to be fully deleted
+                echo "Waiting for service to be deleted..."
+                for i in {1..30}; do
+                  if ! aws ecs describe-services --cluster $ECS_CLUSTER --services $SERVICE_NAME --region $AWS_REGION 2>/dev/null | grep -q "ACTIVE\|DRAINING"; then
+                    echo "Service deleted successfully"
+                    break
+                  fi
+                  echo "Waiting for service deletion... ($i/30)"
+                  sleep 5
+                done
                 
                 # Create new service
                 echo "Creating new service $SERVICE_NAME..."
